@@ -1,22 +1,26 @@
 import speech_recognition as sr
 
 
-def listen_once() -> str:
+def listen_once(timeout: int = 5, phrase_time_limit: int = 6) -> str:
     recognizer = sr.Recognizer()
 
     with sr.Microphone() as source:
-        print("K.A.N.Y.E.: Ajustando ruido ambiente...")
-        recognizer.adjust_for_ambient_noise(source, duration=0.8)
+        recognizer.adjust_for_ambient_noise(source, duration=0.5)
 
-        print("K.A.N.Y.E.: Hablá ahora.")
-        audio = recognizer.listen(source, timeout=5, phrase_time_limit=6)
+        try:
+            audio = recognizer.listen(
+                source,
+                timeout=timeout,
+                phrase_time_limit=phrase_time_limit
+            )
+        except sr.WaitTimeoutError:
+            return ""
 
     try:
         text = recognizer.recognize_google(audio, language="es-HN")
         return text.lower().strip()
 
     except sr.UnknownValueError:
-        print("K.A.N.Y.E.: No entendí lo que dijiste.")
         return ""
 
     except sr.RequestError:
