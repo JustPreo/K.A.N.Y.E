@@ -3,7 +3,7 @@ from core.app_resolver import find_best_app_match
 from core.system_actions import open_application
 from core.web_search import search_google
 from core.folder_actions import open_folder
-from core.mode_actions import activate_mode, create_mode_interactive, list_modes
+from core.mode_actions import activate_mode, create_mode_interactive, list_modes, delete_mode
 
 
 def main():
@@ -88,6 +88,18 @@ def main():
                 print("K.A.N.Y.E.: Modo creado correctamente.\n")
             else:
                 print("K.A.N.Y.E.: No se creó el modo.\n")
+
+        elif intent == "delete_mode":
+            if not query:
+                print("K.A.N.Y.E.: Decime qué modo querés eliminar. Ej: elimina modo gaming\n")
+                continue
+
+            deleted = delete_mode(query)
+
+            if deleted:
+                print("K.A.N.Y.E.: Modo eliminado correctamente.\n")
+            else:
+                print("K.A.N.Y.E.: No se eliminó el modo.\n")
 
         elif intent == "list_modes":
             list_modes()

@@ -14,6 +14,24 @@ def detect_intent(command: str) -> dict:
             "query": ""
         }
     
+    delete_mode_words = [
+        "elimina modo",
+        "eliminar modo",
+        "borra modo",
+        "borrar modo",
+        "quita modo",
+        "quitar modo"
+    ]
+
+    for word in delete_mode_words:
+        if text.startswith(word):
+            query = text.replace(word, "", 1).strip()
+
+            return {
+                "intent": "delete_mode",
+                "query": query
+            }
+    
     create_mode_words = [
         "crea modo",
         "crear modo",

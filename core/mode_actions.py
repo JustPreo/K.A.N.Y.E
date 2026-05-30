@@ -130,6 +130,36 @@ def list_modes() -> None:
     for mode_name in modes.keys():
         print(f"- {mode_name}")
 
+def delete_mode(mode_name: str) -> bool:
+    mode_name = mode_name.lower().strip()
+
+    if not mode_name:
+        print("K.A.N.Y.E.: Necesito el nombre del modo que querés eliminar.")
+        return False
+
+    modes = load_modes()
+
+    if mode_name not in modes:
+        print(f"K.A.N.Y.E.: No existe el modo '{mode_name}'.")
+        return False
+
+    print(f"K.A.N.Y.E.: Estás a punto de eliminar el modo '{mode_name}'.")
+
+    confirm = input("¿Seguro que querés eliminarlo? sí/no: ").lower().strip()
+
+    if confirm not in ["si", "sí", "s"]:
+        print("K.A.N.Y.E.: Eliminación cancelada.")
+        return False
+
+    del modes[mode_name]
+
+    saved = save_modes(modes)
+
+    if saved:
+        print(f"K.A.N.Y.E.: Modo '{mode_name}' eliminado.")
+        return True
+
+    return False
 
 def activate_mode(mode_name: str) -> bool:
     mode_name = mode_name.lower().strip()
