@@ -15,14 +15,7 @@ def detect_intent(command: str) -> dict:
         }
     
         # Activar modo
-    for word in mode_words:
-        if text.startswith(word):
-            query = text.replace(word, "", 1).strip()
-
-            return {
-                "intent": "activate_mode",
-                "query": query
-            }
+    
 
     open_words = [
         "abre",
@@ -46,6 +39,15 @@ def detect_intent(command: str) -> dict:
     "activar modo",
     "modo"
     ]
+
+    for word in mode_words:
+        if text.startswith(word):
+            query = text.replace(word, "", 1).strip()
+
+            return {
+                "intent": "activate_mode",
+                "query": query
+            }
 
     
     
