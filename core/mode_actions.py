@@ -161,6 +161,97 @@ def delete_mode(mode_name: str) -> bool:
 
     return False
 
+def edit_mode_interactive(mode_name: str) -> bool:
+    mode_name = mode_name.lower().strip()
+
+    if not mode_name:
+        print("K.A.N.Y.E.: Necesito el nombre del modo que querés editar.")
+        return False
+
+    modes = load_modes()
+
+    if mode_name not in modes:
+        print(f"K.A.N.Y.E.: No existe el modo '{mode_name}'.")
+        return False
+
+    mode = modes[mode_name]
+
+    print(f"\nK.A.N.Y.E.: Editando modo '{mode_name}'.")
+    print("Contenido actual:")
+    print(json.dumps(mode, indent=4, ensure_ascii=False))
+
+    print("\n¿Qué querés editar?")
+    print("1. Apps")
+    print("2. URLs")
+    print("3. Carpetas")
+    print("4. Mensaje")
+    print("5. Todo")
+    print("6. Cancelar")
+
+    option = input("Opción: ").strip()
+
+    if option == "1":
+        apps_text = input("Nuevas apps separadas por coma. Ej: steam, discord, chrome\nApps: ")
+        mode["apps"] = split_user_list(apps_text)
+
+    elif option == "2":
+        urls_text = input("Nuevas URLs separadas por coma. Si no hay, escribe no.\nURLs: ")
+        mode["urls"] = split_user_list(urls_text)
+
+    elif option == "3":
+        folders_text = input("Nuevas carpetas separadas por coma. Ej: descargas, documentos. Si no hay, escribe no.\nCarpetas: ")
+        mode["folders"] = split_user_list(folders_text)
+
+    elif option == "4":
+        message_text = input("Nuevo mensaje final:\nMensaje: ").strip()
+
+        if message_text:
+            mode["message"] = message_text
+        else:
+            mode["message"] = f"Modo {mode_name} activado."
+
+    elif option == "5":
+        apps_text = input("Nuevas apps separadas por coma. Ej: steam, discord, chrome\nApps: ")
+        urls_text = input("Nuevas URLs separadas por coma. Si no hay, escribe no.\nURLs: ")
+        folders_text = input("Nuevas carpetas separadas por coma. Ej: descargas, documentos. Si no hay, escribe no.\nCarpetas: ")
+        message_text = input("Nuevo mensaje final. Si lo dejas vacío, usaré uno automático.\nMensaje: ")
+
+        mode["apps"] = split_user_list(apps_text)
+        mode["urls"] = split_user_list(urls_text)
+        mode["folders"] = split_user_list(folders_text)
+
+        if message_text.strip():
+            mode["message"] = message_text.strip()
+        else:
+            mode["message"] = f"Modo {mode_name} activado."
+
+    elif option == "6":
+        print("K.A.N.Y.E.: Edición cancelada.")
+        return False
+
+    else:
+        print("K.A.N.Y.E.: Opción no válida.")
+        return False
+
+    print("\nK.A.N.Y.E.: Nuevo contenido:")
+    print(json.dumps(mode, indent=4, ensure_ascii=False))
+
+    confirm = input("\n¿Guardar cambios? sí/no: ").lower().strip()
+
+    if confirm not in ["si", "sí", "s"]:
+        print("K.A.N.Y.E.: Cambios cancelados.")
+        return False
+
+    modes[mode_name] = mode
+
+    saved = save_modes(modes)
+
+    if saved:
+        print(f"K.A.N.Y.E.: Modo '{mode_name}' actualizado.")
+        return True
+
+    return False
+
 def activate_mode(mode_name: str) -> bool:
     mode_name = mode_name.lower().strip()
     modes = load_modes()

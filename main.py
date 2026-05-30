@@ -3,7 +3,7 @@ from core.app_resolver import find_best_app_match
 from core.system_actions import open_application
 from core.web_search import search_google
 from core.folder_actions import open_folder
-from core.mode_actions import activate_mode, create_mode_interactive, list_modes, delete_mode
+from core.mode_actions import activate_mode, create_mode_interactive, list_modes, delete_mode, edit_mode_interactive
 
 
 def main():
@@ -104,7 +104,19 @@ def main():
         elif intent == "list_modes":
             list_modes()
             print()
-        
+
+        elif intent == "edit_mode":
+            if not query:
+                print("K.A.N.Y.E.: Decime qué modo querés editar. Ej: editar modo gaming\n")
+                continue
+
+            edited = edit_mode_interactive(query)
+
+            if edited:
+                print("K.A.N.Y.E.: Modo editado correctamente.\n")
+            else:
+                print("K.A.N.Y.E.: No se editó el modo.\n")
+                
         else:
             print("K.A.N.Y.E.: No entendí el comando.\n")
 
