@@ -1,0 +1,20 @@
+{
+  "gaming": {
+    "apps": ["steam", "discord"],
+    "urls": ["https://open.spotify.com/"],
+    "folders": [],
+    "message": "Modo gaming activado."
+  },
+  "estudio": {
+    "apps": ["notas", "chrome"],
+    "urls": ["https://www.google.com"],
+    "folders": ["documentos"],
+    "message": "Modo estudio activado."
+  },
+  "programacion": {
+    "apps": ["visual studio code", "terminal", "chrome"],
+    "urls": ["https://github.com"],
+    "folders": [],
+    "message": "Modo programación activado."
+  }
+}

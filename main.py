@@ -3,7 +3,7 @@ from core.app_resolver import find_best_app_match
 from core.system_actions import open_application
 from core.web_search import search_google
 from core.folder_actions import open_folder
-
+from core.mode_actions import activate_mode
 
 def main():
     print("K.A.N.Y.E. iniciado en modo texto.")
@@ -63,6 +63,18 @@ def main():
                 print("K.A.N.Y.E.: Carpeta abierta.\n")
             else:
                 print("K.A.N.Y.E.: No pude abrir esa carpeta.\n")
+
+        elif intent == "activate_mode":
+            if not query:
+                print("K.A.N.Y.E.: Decime qué modo querés activar.\n")
+                continue
+
+            activated = activate_mode(query)
+
+            if activated:
+                print("K.A.N.Y.E.: Modo ejecutado correctamente.\n")
+            else:
+                print("K.A.N.Y.E.: No pude activar ese modo.\n")
 
         else:
             print("K.A.N.Y.E.: No entendí el comando.\n")

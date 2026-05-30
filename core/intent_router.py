@@ -13,6 +13,16 @@ def detect_intent(command: str) -> dict:
             "intent": "exit",
             "query": ""
         }
+    
+        # Activar modo
+    for word in mode_words:
+        if text.startswith(word):
+            query = text.replace(word, "", 1).strip()
+
+            return {
+                "intent": "activate_mode",
+                "query": query
+            }
 
     open_words = [
         "abre",
@@ -30,6 +40,15 @@ def detect_intent(command: str) -> dict:
         "googlea",
         "investiga"
     ]
+
+    mode_words = [
+    "activa modo",
+    "activar modo",
+    "modo"
+    ]
+
+    
+    
 
     folder_words = [
         "descargas",
