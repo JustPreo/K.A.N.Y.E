@@ -4,7 +4,7 @@ from core.system_actions import open_application
 from core.web_search import search_google
 from core.folder_actions import open_folder
 from core.mode_actions import activate_mode, create_mode_interactive, list_modes, delete_mode, edit_mode_interactive
-
+from core.speech_to_text import listen_once
 
 def main():
     print("K.A.N.Y.E. iniciado en modo texto.")
@@ -16,7 +16,16 @@ def main():
     print("- salir\n")
 
     while True:
-        command = input("Tú: ")
+        command = input("Presiona Enter para hablar o escribe un comando: ").strip()
+
+        if command == "":
+            command = listen_once()
+
+        if not command:
+            print()
+            continue
+
+        print(f"Tú dijiste/escribiste: {command}")
 
         result = detect_intent(command)
 
@@ -116,7 +125,7 @@ def main():
                 print("K.A.N.Y.E.: Modo editado correctamente.\n")
             else:
                 print("K.A.N.Y.E.: No se editó el modo.\n")
-                
+
         else:
             print("K.A.N.Y.E.: No entendí el comando.\n")
 
