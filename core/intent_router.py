@@ -14,6 +14,28 @@ def detect_intent(command: str) -> dict:
             "query": ""
         }
     
+    create_mode_words = [
+        "crea modo",
+        "crear modo",
+        "agrega modo",
+        "agregar modo",
+        "nuevo modo"
+    ]
+
+    for word in create_mode_words:
+        if text.startswith(word):
+            query = text.replace(word, "", 1).strip()
+
+            return {
+                "intent": "create_mode",
+                "query": query
+            }
+
+    if text in ["modos", "lista modos", "ver modos", "mostrar modos"]:
+        return {
+            "intent": "list_modes",
+            "query": ""
+        }
         # Activar modo
     
 
