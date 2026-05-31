@@ -1,7 +1,7 @@
 import ollama
 
 
-MODEL_NAME = "qwen2.5:1.5b"
+MODEL_NAME = "qwen2.5:3b"
 
 
 SYSTEM_PROMPT = """
@@ -57,9 +57,9 @@ Responde interpretando el contexto y corrigiendo posibles errores de transcripci
             model=MODEL_NAME,
             messages=conversation_history,
             options={
-                "temperature": 0.5,
-                "num_predict": 180
-            }
+            "temperature": 0.6,
+            "num_predict": 220
+        }
         )
 
         answer = response["message"]["content"].strip()
