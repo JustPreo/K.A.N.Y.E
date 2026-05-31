@@ -37,6 +37,24 @@ def detect_intent(command: str) -> dict:
                 "intent": "close_app",
                 "query": query
             }
+        
+        site_words = [
+        "abre sitio",
+        "abrir sitio",
+        "abre página",
+        "abre pagina",
+        "abrir página",
+        "abrir pagina"
+    ]
+
+    for word in site_words:
+        if text.startswith(word):
+            query = text.replace(word, "", 1).strip()
+
+            return {
+                "intent": "open_site",
+                "query": query
+            }
     
     media_commands = {
         "pausa": "play_pause",

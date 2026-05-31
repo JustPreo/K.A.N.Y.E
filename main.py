@@ -26,6 +26,8 @@ from core.media_actions import (
     volume_mute
 )
 from core.process_actions import close_application
+from core.site_actions import open_site
+
 
 LAST_INTERACTION = {
     "type": None
@@ -56,6 +58,12 @@ def is_clear_system_command(command: str) -> bool:
     text = command.lower().strip()
 
     command_starters = [
+        "abre sitio",
+        "abrir sitio",
+        "abre página",
+        "abre pagina",
+        "abrir página",
+        "abrir pagina",
         "cierra",
         "cerrar",
         "cerrá",
@@ -236,6 +244,14 @@ def handle_command(command: str) -> bool:
     elif intent == "open_app":
         print(f"K.A.N.Y.E.: Buscando app parecida a: {query}")
 
+        site_opened = open_site(query)
+
+        if site_opened:
+            say(f"Abriendo {query}.")
+            print()
+            set_last_interaction("command")
+            return True
+
         app = find_best_app_match(query)
 
         if not app:
@@ -406,9 +422,28 @@ def handle_command(command: str) -> bool:
 
     elif intent == "media_control":
         return handle_media_control(query)
-    
+    elif intent == "file_action":
+        return handle_file_action(query)
     elif intent == "chat_direct":
         return handle_chat(query)
+    elif intent == "open_site":
+        if not query:
+            say("Decime qué página querés abrir.")
+            print()
+            set_last_interaction("command")
+            return True
+
+        opened = open_site(query)
+
+        if opened:
+            say(f"Abriendo {query}.")
+            print()
+        else:
+            say("No encontré esa página guardada.")
+            print()
+
+        set_last_interaction("command")
+
 
     elif intent == "chat":
         print(f"K.A.N.Y.E.: Analizando intención con LLM: {query}")
@@ -438,8 +473,7 @@ def handle_command(command: str) -> bool:
 
         return handle_chat(llm_query)
     
-    elif intent == "file_action":
-        return handle_file_action(query)
+
     else:
         say("No entendí el comando.")
         print()
