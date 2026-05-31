@@ -16,6 +16,8 @@ from core.local_llm import ask_llm
 from core.text_normalizer import normalize_text
 from core.llm_intent import classify_with_llm
 from core.file_actions import read_file, search_in_file, backup_file, replace_in_file
+from core.music_actions import play_on_youtube_music
+
 
 LAST_INTERACTION = {
     "type": None
@@ -46,6 +48,15 @@ def is_clear_system_command(command: str) -> bool:
     text = command.lower().strip()
 
     command_starters = [
+        "pon",
+        "pone",
+        "reproduce",
+        "toca",
+        "pon música",
+        "poner música",
+        "busca música",
+        "busca cancion",
+        "busca canción",
         "abre",
         "abrí",
         "abrir",
@@ -279,6 +290,26 @@ def handle_command(command: str) -> bool:
             print()
         else:
             say("No se editó el modo.")
+            print()
+
+        set_last_interaction("command")
+
+    elif intent == "play_music":
+        if not query:
+            say("Decime qué canción querés escuchar.")
+            print()
+            set_last_interaction("command")
+            return True
+
+        print(f"K.A.N.Y.E.: Buscando en YouTube Music: {query}")
+
+        played = play_on_youtube_music(query)
+
+        if played:
+            say(f"Buscando {query} en YouTube Music.")
+            print()
+        else:
+            say("No pude abrir YouTube Music.")
             print()
 
         set_last_interaction("command")

@@ -14,6 +14,31 @@ def detect_intent(command: str) -> dict:
             "query": ""
         }
     
+    music_words = [
+        "pon",
+        "pone",
+        "reproduce",
+        "toca",
+        "pon música",
+        "poner música",
+        "busca música",
+        "busca cancion",
+        "busca canción"
+    ]
+
+    for word in music_words:
+        if text.startswith(word):
+            query = text.replace(word, "", 1).strip()
+
+            # Limpieza extra
+            query = query.replace("en youtube music", "").strip()
+            query = query.replace("en youtube", "").strip()
+
+            return {
+                "intent": "play_music",
+                "query": query
+            }
+    
 
     file_action_words = [
         "lee archivo",
