@@ -660,7 +660,7 @@ def main():
     print("- Kanye activa modo gaming")
     print("- Kanye salir\n")
 
-    speak("K.A.N.Y.E. iniciado.", use_cache=True)
+    speak("KANYE iniciado.", use_cache=True)
 
     running = True
 
