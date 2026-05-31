@@ -14,6 +14,47 @@ def detect_intent(command: str) -> dict:
             "query": ""
         }
     
+    media_commands = {
+        "pausa": "play_pause",
+        "pausa la música": "play_pause",
+        "pausar música": "play_pause",
+        "reanuda": "play_pause",
+        "reanuda la música": "play_pause",
+        "continua": "play_pause",
+        "continúa": "play_pause",
+        "sigue": "play_pause",
+
+        "siguiente": "next",
+        "siguiente canción": "next",
+        "pasa canción": "next",
+        "cambia canción": "next",
+
+        "anterior": "previous",
+        "canción anterior": "previous",
+        "regresa canción": "previous",
+        "devuelve canción": "previous",
+
+        "sube volumen": "volume_up",
+        "subir volumen": "volume_up",
+        "más volumen": "volume_up",
+
+        "baja volumen": "volume_down",
+        "bajar volumen": "volume_down",
+        "menos volumen": "volume_down",
+
+        "silencia": "mute",
+        "silencio": "mute",
+        "mute": "mute",
+        "quita volumen": "mute"
+    }
+
+    for phrase, action in media_commands.items():
+        if text.startswith(phrase):
+            return {
+                "intent": "media_control",
+                "query": action
+            }
+    
     music_words = [
         "pon",
         "pone",

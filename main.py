@@ -17,7 +17,14 @@ from core.text_normalizer import normalize_text
 from core.llm_intent import classify_with_llm
 from core.file_actions import read_file, search_in_file, backup_file, replace_in_file
 from core.music_actions import play_on_youtube_music
-
+from core.media_actions import (
+    media_play_pause,
+    media_next,
+    media_previous,
+    volume_up,
+    volume_down,
+    volume_mute
+)
 
 LAST_INTERACTION = {
     "type": None
@@ -139,7 +146,61 @@ def handle_chat(query: str) -> bool:
 
     set_last_interaction("chat")
     return True
+def handle_media_control(action: str) -> bool:
+    if action == "play_pause":
+        done = media_play_pause()
 
+        if done:
+            say("Listo.")
+        else:
+            say("No pude pausar o reanudar.")
+
+    elif action == "next":
+        done = media_next()
+
+        if done:
+            say("Siguiente canción.")
+        else:
+            say("No pude pasar la canción.")
+
+    elif action == "previous":
+        done = media_previous()
+
+        if done:
+            say("Canción anterior.")
+        else:
+            say("No pude regresar la canción.")
+
+    elif action == "volume_up":
+        done = volume_up()
+
+        if done:
+            say("Subiendo volumen.")
+        else:
+            say("No pude subir el volumen.")
+
+    elif action == "volume_down":
+        done = volume_down()
+
+        if done:
+            say("Bajando volumen.")
+        else:
+            say("No pude bajar el volumen.")
+
+    elif action == "mute":
+        done = volume_mute()
+
+        if done:
+            say("Silencio.")
+        else:
+            say("No pude silenciar.")
+
+    else:
+        say("No entendí el control multimedia.")
+
+    print()
+    set_last_interaction("command")
+    return True
 
 def handle_command(command: str) -> bool:
     """
@@ -314,6 +375,9 @@ def handle_command(command: str) -> bool:
 
         set_last_interaction("command")
 
+    elif intent == "media_control":
+        return handle_media_control(query)
+    
     elif intent == "chat_direct":
         return handle_chat(query)
 
