@@ -11,9 +11,18 @@ from core.mode_actions import (
     edit_mode_interactive
 )
 from core.speech_to_text import listen_once
+from core.text_to_speech import speak
 
 
 WAKE_WORDS = ["kanye", "kanie", "kan ye", "caña", "canye"]
+
+
+def say(message: str) -> None:
+    """
+    Imprime y habla el mensaje.
+    """
+    print(f"K.A.N.Y.E.: {message}")
+    speak(message)
 
 
 def remove_wake_word(text: str) -> str:
@@ -39,7 +48,7 @@ def handle_command(command: str) -> bool:
     query = result["query"]
 
     if intent == "exit":
-        print("K.A.N.Y.E.: Cerrando.")
+        say("Cerrando.")
         return False
 
     elif intent == "open_app":
@@ -48,7 +57,8 @@ def handle_command(command: str) -> bool:
         app = find_best_app_match(query)
 
         if not app:
-            print("K.A.N.Y.E.: No encontré una app parecida.\n")
+            say("No encontré una app parecida.")
+            print()
             return True
 
         print(f"K.A.N.Y.E.: Encontré: {app['name']} | Score: {app['score']}")
@@ -56,9 +66,11 @@ def handle_command(command: str) -> bool:
         opened = open_application(app)
 
         if opened:
-            print(f"K.A.N.Y.E.: Abriendo {app['name']}.\n")
+            say(f"Abriendo {app['name']}.")
+            print()
         else:
-            print("K.A.N.Y.E.: Encontré la app, pero no pude abrirla.\n")
+            say("Encontré la app, pero no pude abrirla.")
+            print()
 
     elif intent == "web_search":
         print(f"K.A.N.Y.E.: Buscando en Google: {query}")
@@ -66,9 +78,11 @@ def handle_command(command: str) -> bool:
         searched = search_google(query)
 
         if searched:
-            print("K.A.N.Y.E.: Búsqueda abierta.\n")
+            say("Búsqueda abierta.")
+            print()
         else:
-            print("K.A.N.Y.E.: No pude hacer la búsqueda.\n")
+            say("No pude hacer la búsqueda.")
+            print()
 
     elif intent == "open_folder":
         print(f"K.A.N.Y.E.: Abriendo carpeta: {query}")
@@ -76,64 +90,80 @@ def handle_command(command: str) -> bool:
         opened = open_folder(query)
 
         if opened:
-            print("K.A.N.Y.E.: Carpeta abierta.\n")
+            say("Carpeta abierta.")
+            print()
         else:
-            print("K.A.N.Y.E.: No pude abrir esa carpeta.\n")
+            say("No pude abrir esa carpeta.")
+            print()
 
     elif intent == "activate_mode":
         if not query:
-            print("K.A.N.Y.E.: Decime qué modo querés activar.\n")
+            say("Decime qué modo querés activar.")
+            print()
             return True
 
         activated = activate_mode(query)
 
         if activated:
-            print("K.A.N.Y.E.: Modo ejecutado correctamente.\n")
+            say("Modo ejecutado correctamente.")
+            print()
         else:
-            print("K.A.N.Y.E.: No pude activar ese modo.\n")
+            say("No pude activar ese modo.")
+            print()
 
     elif intent == "create_mode":
         if not query:
-            print("K.A.N.Y.E.: Decime el nombre del modo. Ej: crea modo gaming\n")
+            say("Decime el nombre del modo. Por ejemplo: crea modo gaming.")
+            print()
             return True
 
         created = create_mode_interactive(query)
 
         if created:
-            print("K.A.N.Y.E.: Modo creado correctamente.\n")
+            say("Modo creado correctamente.")
+            print()
         else:
-            print("K.A.N.Y.E.: No se creó el modo.\n")
+            say("No se creó el modo.")
+            print()
 
     elif intent == "list_modes":
         list_modes()
+        speak("Estos son los modos disponibles.")
         print()
 
     elif intent == "delete_mode":
         if not query:
-            print("K.A.N.Y.E.: Decime qué modo querés eliminar. Ej: elimina modo gaming\n")
+            say("Decime qué modo querés eliminar. Por ejemplo: elimina modo gaming.")
+            print()
             return True
 
         deleted = delete_mode(query)
 
         if deleted:
-            print("K.A.N.Y.E.: Modo eliminado correctamente.\n")
+            say("Modo eliminado correctamente.")
+            print()
         else:
-            print("K.A.N.Y.E.: No se eliminó el modo.\n")
+            say("No se eliminó el modo.")
+            print()
 
     elif intent == "edit_mode":
         if not query:
-            print("K.A.N.Y.E.: Decime qué modo querés editar. Ej: editar modo gaming\n")
+            say("Decime qué modo querés editar. Por ejemplo: editar modo gaming.")
+            print()
             return True
 
         edited = edit_mode_interactive(query)
 
         if edited:
-            print("K.A.N.Y.E.: Modo editado correctamente.\n")
+            say("Modo editado correctamente.")
+            print()
         else:
-            print("K.A.N.Y.E.: No se editó el modo.\n")
+            say("No se editó el modo.")
+            print()
 
     else:
-        print("K.A.N.Y.E.: No entendí el comando.\n")
+        say("No entendí el comando.")
+        print()
 
     return True
 
@@ -146,6 +176,8 @@ def main():
     print("- Kanye busca árboles B")
     print("- Kanye activa modo gaming")
     print("- Kanye salir\n")
+
+    speak("K.A.N.Y.E. iniciado.")
 
     running = True
 
