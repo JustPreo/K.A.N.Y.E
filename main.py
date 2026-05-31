@@ -39,7 +39,8 @@ WAKE_WORDS = [
     "kan ye",
     "caña",
     "canye",
-    "calle"
+    "calle",
+    "kanji"
 ]
 
 
