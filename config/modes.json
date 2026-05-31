@@ -1,5 +1,6 @@
 {
     "sexo": {
+        "close_before": true,
         "apps": [],
         "urls": [
             "https://music.youtube.com/watch?v=tQj1kPmQXwE"

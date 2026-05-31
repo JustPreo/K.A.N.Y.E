@@ -5,7 +5,7 @@ from pathlib import Path
 from core.app_resolver import find_best_app_match
 from core.system_actions import open_application
 from core.folder_actions import open_folder
-
+from core.process_actions import close_all_desktop_apps
 
 MODES_FILE = Path("config") / "modes.json"
 
@@ -82,6 +82,8 @@ def create_mode_interactive(mode_name: str) -> bool:
     apps_text = input("Apps a abrir, separadas por coma. Ej: steam, discord, chrome\nApps: ")
     urls_text = input("URLs a abrir, separadas por coma. Si no hay, escribe no.\nURLs: ")
     folders_text = input("Carpetas a abrir, separadas por coma. Ej: descargas, documentos. Si no hay, escribe no.\nCarpetas: ")
+    close_before_text = input("¿Cerrar apps antes de activar este modo? sí/no: ").lower().strip()
+    close_before = close_before_text in ["si", "sí", "s"]
     message_text = input("Mensaje final del modo. Si lo dejas vacío, usaré uno automático.\nMensaje: ")
 
     apps = split_user_list(apps_text)
@@ -92,6 +94,7 @@ def create_mode_interactive(mode_name: str) -> bool:
         message_text = f"Modo {mode_name} activado."
 
     new_mode = {
+        "close_before": close_before,
         "apps": apps,
         "urls": urls,
         "folders": folders,
@@ -186,8 +189,8 @@ def edit_mode_interactive(mode_name: str) -> bool:
     print("3. Carpetas")
     print("4. Mensaje")
     print("5. Todo")
-    print("6. Cancelar")
-
+    print("6. Cerrar apps antes")
+    print("7. Cancelar")
     option = input("Opción: ").strip()
 
     if option == "1":
@@ -226,6 +229,10 @@ def edit_mode_interactive(mode_name: str) -> bool:
             mode["message"] = f"Modo {mode_name} activado."
 
     elif option == "6":
+        close_before_text = input("¿Cerrar apps antes de activar este modo? sí/no: ").lower().strip()
+        mode["close_before"] = close_before_text in ["si", "sí", "s"]
+
+    elif option == "7":
         print("K.A.N.Y.E.: Edición cancelada.")
         return False
 
@@ -266,6 +273,11 @@ def activate_mode(mode_name: str) -> bool:
     urls = mode.get("urls", [])
     folders = mode.get("folders", [])
     message = mode.get("message", f"Modo {mode_name} activado.")
+    close_before = mode.get("close_before", False)
+
+    if close_before:
+        print("K.A.N.Y.E.: Cerrando aplicaciones antes de activar el modo...")
+        close_all_desktop_apps()
 
     print(f"K.A.N.Y.E.: Activando modo {mode_name}...")
 

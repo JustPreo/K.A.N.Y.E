@@ -1,6 +1,6 @@
 import psutil
 from rapidfuzz import process, fuzz
-
+import os
 
 def get_running_processes() -> list[dict]:
     """
@@ -79,5 +79,64 @@ def close_application(query: str) -> bool:
 
             except (psutil.NoSuchProcess, psutil.AccessDenied) as error:
                 print(f"K.A.N.Y.E.: No pude cerrar {proc['name']}: {error}")
+
+    return closed_any
+
+
+PROTECTED_PROCESSES = [
+    "python.exe",
+    "pythonw.exe",
+    "powershell.exe",
+    "windowsterminal.exe",
+    "cmd.exe",
+    "explorer.exe",
+    "ollama.exe",
+    "ollama app.exe"
+]
+
+
+def close_all_desktop_apps() -> bool:
+    """
+    Cierra aplicaciones de escritorio evitando cerrar K.A.N.Y.E.,
+    Windows Explorer, terminal, Python y Ollama.
+    """
+    current_pid = os.getpid()
+    closed_any = False
+
+    for proc in psutil.process_iter(["pid", "name", "exe"]):
+        try:
+            pid = proc.info["pid"]
+            name = proc.info.get("name")
+            exe = proc.info.get("exe") or ""
+
+            if not name:
+                continue
+
+            name_lower = name.lower()
+            exe_lower = exe.lower()
+
+            if pid == current_pid:
+                continue
+
+            if name_lower in PROTECTED_PROCESSES:
+                continue
+
+            if "windows\\system32" in exe_lower:
+                continue
+
+            if not exe:
+                continue
+
+            process_obj = psutil.Process(pid)
+            process_obj.terminate()
+
+            print(f"K.A.N.Y.E.: Cerrando {name} | PID: {pid}")
+            closed_any = True
+
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+        except Exception as error:
+            print(f"K.A.N.Y.E.: No pude cerrar {proc.info.get('name')}: {error}")
 
     return closed_any
