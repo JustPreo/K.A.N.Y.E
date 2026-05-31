@@ -17,7 +17,82 @@ from core.text_normalizer import normalize_text
 from core.llm_intent import classify_with_llm
 
 
-WAKE_WORDS = ["kanye", "kanie", "kan ye", "caña", "canye"]
+LAST_INTERACTION = {
+    "type": None
+}
+
+WAKE_WORDS = [
+    "kanye",
+    "kanie",
+    "kan ye",
+    "caña",
+    "canye",
+    "calle"
+]
+
+
+def set_last_interaction(interaction_type: str) -> None:
+    """
+    Guarda si lo último fue comando o conversación.
+    """
+    LAST_INTERACTION["type"] = interaction_type
+
+
+def is_clear_system_command(command: str) -> bool:
+    """
+    Detecta si el usuario está dando un comando claro del sistema.
+    Si no es claro, lo dejamos como conversación cuando venimos de chat.
+    """
+    text = command.lower().strip()
+
+    command_starters = [
+        "abre",
+        "abrí",
+        "abrir",
+        "ejecuta",
+        "lanza",
+
+        "busca",
+        "buscar",
+        "googlea",
+        "investiga",
+
+        "activa modo",
+        "activar modo",
+        "modo",
+
+        "crea modo",
+        "crear modo",
+        "nuevo modo",
+        "agrega modo",
+        "agregar modo",
+
+        "edita modo",
+        "editar modo",
+        "modifica modo",
+        "modificar modo",
+        "cambia modo",
+        "cambiar modo",
+
+        "elimina modo",
+        "eliminar modo",
+        "borra modo",
+        "borrar modo",
+        "quita modo",
+        "quitar modo",
+
+        "modos",
+        "lista modos",
+        "ver modos",
+        "mostrar modos",
+
+        "salir",
+        "cerrar",
+        "exit",
+        "quit"
+    ]
+
+    return any(text.startswith(starter) for starter in command_starters)
 
 
 def say(message: str) -> None:
@@ -39,6 +114,22 @@ def remove_wake_word(text: str) -> str:
     return ""
 
 
+def handle_chat(query: str) -> bool:
+    """
+    Maneja conversación normal con el LLM.
+    No usa caché porque las respuestas del LLM son variables.
+    """
+    print(f"K.A.N.Y.E.: Conversando: {query}")
+
+    answer = ask_llm(query)
+
+    print(f"K.A.N.Y.E.: {answer}\n")
+    speak(answer, use_cache=False)
+
+    set_last_interaction("chat")
+    return True
+
+
 def handle_command(command: str) -> bool:
     """
     Ejecuta un comando.
@@ -46,13 +137,19 @@ def handle_command(command: str) -> bool:
     Devuelve True para seguir corriendo.
     """
 
-    result = detect_intent(command)
-
-    intent = result["intent"]
-    query = result["query"]
+    # Si venimos de una conversación y el usuario NO dio un comando claro,
+    # seguimos conversando sin pasar por el clasificador de intención.
+    if LAST_INTERACTION["type"] == "chat" and not is_clear_system_command(command):
+        intent = "chat_direct"
+        query = command
+    else:
+        result = detect_intent(command)
+        intent = result["intent"]
+        query = result["query"]
 
     if intent == "exit":
         say("Cerrando.")
+        set_last_interaction("command")
         return False
 
     elif intent == "open_app":
@@ -63,6 +160,7 @@ def handle_command(command: str) -> bool:
         if not app:
             say("No encontré una app parecida.")
             print()
+            set_last_interaction("command")
             return True
 
         print(f"K.A.N.Y.E.: Encontré: {app['name']} | Score: {app['score']}")
@@ -76,6 +174,8 @@ def handle_command(command: str) -> bool:
             say("Encontré la app, pero no pude abrirla.")
             print()
 
+        set_last_interaction("command")
+
     elif intent == "web_search":
         print(f"K.A.N.Y.E.: Buscando en Google: {query}")
 
@@ -87,6 +187,8 @@ def handle_command(command: str) -> bool:
         else:
             say("No pude hacer la búsqueda.")
             print()
+
+        set_last_interaction("command")
 
     elif intent == "open_folder":
         print(f"K.A.N.Y.E.: Abriendo carpeta: {query}")
@@ -100,10 +202,13 @@ def handle_command(command: str) -> bool:
             say("No pude abrir esa carpeta.")
             print()
 
+        set_last_interaction("command")
+
     elif intent == "activate_mode":
         if not query:
             say("Decime qué modo querés activar.")
             print()
+            set_last_interaction("command")
             return True
 
         activated = activate_mode(query)
@@ -115,10 +220,13 @@ def handle_command(command: str) -> bool:
             say("No pude activar ese modo.")
             print()
 
+        set_last_interaction("command")
+
     elif intent == "create_mode":
         if not query:
             say("Decime el nombre del modo. Por ejemplo: crea modo gaming.")
             print()
+            set_last_interaction("command")
             return True
 
         created = create_mode_interactive(query)
@@ -130,15 +238,20 @@ def handle_command(command: str) -> bool:
             say("No se creó el modo.")
             print()
 
+        set_last_interaction("command")
+
     elif intent == "list_modes":
         list_modes()
-        speak("Estos son los modos disponibles.")
+        speak("Estos son los modos disponibles.", use_cache=True)
         print()
+
+        set_last_interaction("command")
 
     elif intent == "delete_mode":
         if not query:
             say("Decime qué modo querés eliminar. Por ejemplo: elimina modo gaming.")
             print()
+            set_last_interaction("command")
             return True
 
         deleted = delete_mode(query)
@@ -150,10 +263,13 @@ def handle_command(command: str) -> bool:
             say("No se eliminó el modo.")
             print()
 
+        set_last_interaction("command")
+
     elif intent == "edit_mode":
         if not query:
             say("Decime qué modo querés editar. Por ejemplo: editar modo gaming.")
             print()
+            set_last_interaction("command")
             return True
 
         edited = edit_mode_interactive(query)
@@ -165,6 +281,11 @@ def handle_command(command: str) -> bool:
             say("No se editó el modo.")
             print()
 
+        set_last_interaction("command")
+
+    elif intent == "chat_direct":
+        return handle_chat(query)
+
     elif intent == "chat":
         print(f"K.A.N.Y.E.: Analizando intención con LLM: {query}")
 
@@ -175,29 +296,28 @@ def handle_command(command: str) -> bool:
 
         print(f"K.A.N.Y.E.: LLM interpretó: {llm_intent} | {llm_query}")
 
-        # Si el LLM decide que realmente era una acción,
-        # reutilizamos handle_command con una frase clara.
         if llm_intent == "activate_mode":
+            set_last_interaction("command")
             return handle_command(f"activa modo {llm_query}")
 
         elif llm_intent == "open_app":
+            set_last_interaction("command")
             return handle_command(f"abre {llm_query}")
 
         elif llm_intent == "open_folder":
+            set_last_interaction("command")
             return handle_command(f"abre {llm_query}")
 
         elif llm_intent == "web_search":
+            set_last_interaction("command")
             return handle_command(f"busca {llm_query}")
 
-        # Si sigue siendo conversación, ahora sí responde normal.
-        answer = ask_llm(llm_query)
-
-        print(f"K.A.N.Y.E.: {answer}\n")
-        speak(answer, use_cache=False)
+        return handle_chat(llm_query)
 
     else:
         say("No entendí el comando.")
         print()
+        set_last_interaction("command")
 
     return True
 
@@ -211,7 +331,7 @@ def main():
     print("- Kanye activa modo gaming")
     print("- Kanye salir\n")
 
-    speak("K.A.N.Y.E. iniciado.")
+    speak("K.A.N.Y.E. iniciado.", use_cache=True)
 
     running = True
 
