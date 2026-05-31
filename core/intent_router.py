@@ -14,6 +14,30 @@ def detect_intent(command: str) -> dict:
             "query": ""
         }
     
+    close_words = [
+        "cierra",
+        "cerrar",
+        "cerrá",
+        "termina",
+        "terminar",
+        "mata",
+        "cerrar programa",
+        "cierra programa"
+    ]
+
+    for word in close_words:
+        if text.startswith(word):
+            query = text.replace(word, "", 1).strip()
+
+            query = query.replace("programa", "", 1).strip()
+            query = query.replace("aplicación", "", 1).strip()
+            query = query.replace("aplicacion", "", 1).strip()
+
+            return {
+                "intent": "close_app",
+                "query": query
+            }
+    
     media_commands = {
         "pausa": "play_pause",
         "pausa la música": "play_pause",

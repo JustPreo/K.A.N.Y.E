@@ -25,6 +25,7 @@ from core.media_actions import (
     volume_down,
     volume_mute
 )
+from core.process_actions import close_application
 
 LAST_INTERACTION = {
     "type": None
@@ -55,6 +56,14 @@ def is_clear_system_command(command: str) -> bool:
     text = command.lower().strip()
 
     command_starters = [
+        "cierra",
+        "cerrar",
+        "cerrá",
+        "termina",
+        "terminar",
+        "mata",
+        "cerrar programa",
+        "cierra programa",
         "pon",
         "pone",
         "reproduce",
@@ -244,6 +253,26 @@ def handle_command(command: str) -> bool:
             print()
         else:
             say("Encontré la app, pero no pude abrirla.")
+            print()
+
+        set_last_interaction("command")
+
+    elif intent == "close_app":
+        if not query:
+            say("Decime qué programa querés cerrar.")
+            print()
+            set_last_interaction("command")
+            return True
+
+        print(f"K.A.N.Y.E.: Buscando programa activo parecido a: {query}")
+
+        closed = close_application(query)
+
+        if closed:
+            say(f"Cerrando {query}.")
+            print()
+        else:
+            say("No encontré ese programa abierto o no pude cerrarlo.")
             print()
 
         set_last_interaction("command")
