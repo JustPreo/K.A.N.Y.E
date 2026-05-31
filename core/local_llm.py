@@ -1,7 +1,7 @@
 import ollama
 
 
-MODEL_NAME = "qwen2.5:3b"
+MODEL_NAME = "phi4-mini"
 
 
 SYSTEM_PROMPT = """
