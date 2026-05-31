@@ -20,10 +20,11 @@ WAKE_WORDS = ["kanye", "kanie", "kan ye", "caña", "canye"]
 
 def say(message: str) -> None:
     """
-    Imprime y habla el mensaje.
+    Imprime y habla el mensaje usando caché.
+    Para comandos fijos del sistema.
     """
     print(f"K.A.N.Y.E.: {message}")
-    speak(message)
+    speak(message, use_cache=True)
 
 
 def remove_wake_word(text: str) -> str:

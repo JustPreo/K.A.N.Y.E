@@ -1,5 +1,6 @@
 import hashlib
 import subprocess
+import tempfile
 from pathlib import Path
 
 import sounddevice as sd
@@ -8,6 +9,7 @@ import soundfile as sf
 
 VOICE_MODEL = Path("voices") / "es_ES-davefx-medium.onnx"
 CACHE_DIR = Path("cache") / "tts"
+TEMP_WAV = Path(tempfile.gettempdir()) / "kanye_temp_response.wav"
 
 
 def get_cache_path(text: str) -> Path:
@@ -50,18 +52,25 @@ def generate_with_piper(text: str, output_path: Path) -> bool:
         return False
 
 
-def speak(text: str) -> None:
+def speak(text: str, use_cache: bool = True) -> None:
     if not text:
         return
 
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    if use_cache:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    wav_path = get_cache_path(text)
+        wav_path = get_cache_path(text)
 
-    if not wav_path.exists():
-        generated = generate_with_piper(text, wav_path)
+        if not wav_path.exists():
+            generated = generate_with_piper(text, wav_path)
 
-        if not generated:
-            return
+            if not generated:
+                return
 
-    play_wav(wav_path)
+        play_wav(wav_path)
+        return
+
+    generated = generate_with_piper(text, TEMP_WAV)
+
+    if generated:
+        play_wav(TEMP_WAV)
