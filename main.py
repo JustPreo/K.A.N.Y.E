@@ -27,7 +27,7 @@ from core.media_actions import (
 )
 from core.process_actions import close_application
 from core.site_actions import open_site
-
+from core.responses import response
 
 LAST_INTERACTION = {
     "type": None
@@ -463,6 +463,10 @@ def handle_command(command: str) -> bool:
             set_last_interaction("command")
             return handle_command(f"abre {llm_query}")
 
+        elif llm_intent == "close_app":
+            set_last_interaction("command")
+            return handle_command(f"cierra {llm_query}")
+
         elif llm_intent == "open_folder":
             set_last_interaction("command")
             return handle_command(f"abre {llm_query}")
@@ -470,6 +474,10 @@ def handle_command(command: str) -> bool:
         elif llm_intent == "web_search":
             set_last_interaction("command")
             return handle_command(f"busca {llm_query}")
+
+        elif llm_intent == "play_music":
+            set_last_interaction("command")
+            return handle_command(f"pon {llm_query}")
 
         return handle_chat(llm_query)
     
