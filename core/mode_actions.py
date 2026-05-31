@@ -286,5 +286,5 @@ def activate_mode(mode_name: str) -> bool:
         print(f"K.A.N.Y.E.: Abriendo carpeta: {folder}")
         open_folder(folder)
 
-    print(f"K.A.N.Y.E.: {message}")
+    #print(f"K.A.N.Y.E.: {message}")
     return True

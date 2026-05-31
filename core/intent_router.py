@@ -157,6 +157,6 @@ def detect_intent(command: str) -> dict:
 
     # Si no reconoce nada, asumimos que quiere abrir una app
     return {
-        "intent": "open_app",
-        "query": text
-    }
+    "intent": "chat",
+    "query": text
+}

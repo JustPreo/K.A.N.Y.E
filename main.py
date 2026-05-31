@@ -12,7 +12,7 @@ from core.mode_actions import (
 )
 from core.speech_to_text import listen_once
 from core.text_to_speech import speak
-
+from core.local_llm import ask_llm
 
 WAKE_WORDS = ["kanye", "kanie", "kan ye", "caña", "canye"]
 
@@ -161,6 +161,13 @@ def handle_command(command: str) -> bool:
             say("No se editó el modo.")
             print()
 
+    elif intent == "chat":
+        print(f"K.A.N.Y.E.: Pensando respuesta para: {query}")
+
+        answer = ask_llm(query)
+
+        print(f"K.A.N.Y.E.: {answer}\n")
+        speak(answer)
     else:
         say("No entendí el comando.")
         print()
