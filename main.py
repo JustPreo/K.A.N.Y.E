@@ -105,7 +105,7 @@ def handle_command(command: str) -> bool:
         activated = activate_mode(query)
 
         if activated:
-            say("Modo ejecutado correctamente.")
+            say(f"Modo {query} activado.")
             print()
         else:
             say("No pude activar ese modo.")
