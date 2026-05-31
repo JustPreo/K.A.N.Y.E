@@ -15,7 +15,7 @@ from core.text_to_speech import speak
 from core.local_llm import ask_llm
 from core.text_normalizer import normalize_text
 from core.llm_intent import classify_with_llm
-
+from core.file_actions import read_file, search_in_file, backup_file, replace_in_file
 
 LAST_INTERACTION = {
     "type": None
@@ -313,7 +313,9 @@ def handle_command(command: str) -> bool:
             return handle_command(f"busca {llm_query}")
 
         return handle_chat(llm_query)
-
+    
+    elif intent == "file_action":
+        return handle_file_action(query)
     else:
         say("No entendí el comando.")
         print()
@@ -321,6 +323,166 @@ def handle_command(command: str) -> bool:
 
     return True
 
+def extract_workspace(query: str) -> tuple[str, str]:
+    """
+    Extrae 'en proyecto web' o 'del proyecto web'.
+    Devuelve:
+    - texto sin esa parte
+    - nombre del proyecto
+    """
+    text = query.strip()
+    lower = text.lower()
+
+    workspace = "kanye"
+
+    markers = [
+        " en proyecto ",
+        " del proyecto ",
+        " en el proyecto "
+    ]
+
+    for marker in markers:
+        if marker in lower:
+            index = lower.rfind(marker)
+            workspace = text[index + len(marker):].strip().lower()
+            text = text[:index].strip()
+            break
+
+    return text, workspace
+
+
+def handle_file_action(query: str) -> bool:
+    query, workspace = extract_workspace(query)
+    text = query.lower().strip()
+
+    if text.startswith("lee archivo"):
+        file_path = query.replace("lee archivo", "", 1).strip()
+        content = read_file(file_path, workspace)
+
+        if content is None:
+            say("No pude leer el archivo.")
+            return True
+
+        preview = content[:1200]
+
+        print("\n--- CONTENIDO DEL ARCHIVO ---")
+        print(preview)
+
+        if len(content) > 1200:
+            print("\n--- Vista previa limitada a 1200 caracteres ---")
+
+        say("Archivo leído.")
+        set_last_interaction("command")
+        return True
+
+    if text.startswith("leer archivo"):
+        file_path = query.replace("leer archivo", "", 1).strip()
+        content = read_file(file_path, workspace)
+
+        if content is None:
+            say("No pude leer el archivo.")
+            return True
+
+        preview = content[:1200]
+
+        print("\n--- CONTENIDO DEL ARCHIVO ---")
+        print(preview)
+
+        if len(content) > 1200:
+            print("\n--- Vista previa limitada a 1200 caracteres ---")
+
+        say("Archivo leído.")
+        set_last_interaction("command")
+        return True
+
+    if text.startswith("haz backup de archivo"):
+        file_path = query.replace("haz backup de archivo", "", 1).strip()
+        done = backup_file(file_path, workspace)
+
+        if done:
+            say("Backup creado.")
+        else:
+            say("No pude crear el backup.")
+
+        set_last_interaction("command")
+        return True
+
+    if text.startswith("hacer backup de archivo"):
+        file_path = query.replace("hacer backup de archivo", "", 1).strip()
+        done = backup_file(file_path, workspace)
+
+        if done:
+            say("Backup creado.")
+        else:
+            say("No pude crear el backup.")
+
+        set_last_interaction("command")
+        return True
+
+    if text.startswith("busca en archivo"):
+        rest = query.replace("busca en archivo", "", 1).strip()
+
+        if " el texto " not in rest:
+            say("Usa el formato: busca en archivo main.py el texto LAST_INTERACTION.")
+            return True
+
+        file_path, search_text = rest.split(" el texto ", 1)
+        found = search_in_file(file_path.strip(), search_text.strip(), workspace)
+
+        if found:
+            say("Texto encontrado.")
+        else:
+            say("No encontré ese texto.")
+
+        set_last_interaction("command")
+        return True
+
+    if text.startswith("buscar en archivo"):
+        rest = query.replace("buscar en archivo", "", 1).strip()
+
+        if " el texto " not in rest:
+            say("Usa el formato: buscar en archivo main.py el texto LAST_INTERACTION.")
+            return True
+
+        file_path, search_text = rest.split(" el texto ", 1)
+        found = search_in_file(file_path.strip(), search_text.strip(), workspace)
+
+        if found:
+            say("Texto encontrado.")
+        else:
+            say("No encontré ese texto.")
+
+        set_last_interaction("command")
+        return True
+
+    if text.startswith("reemplaza"):
+        rest = query.replace("reemplaza", "", 1).strip()
+
+        if " por " not in rest or " en archivo " not in rest:
+            say("Usa el formato: reemplaza texto viejo por texto nuevo en archivo main.py.")
+            return True
+
+        old_and_new, file_path = rest.rsplit(" en archivo ", 1)
+        old_text, new_text = old_and_new.split(" por ", 1)
+
+        changed = replace_in_file(
+            file_path.strip(),
+            old_text.strip(),
+            new_text.strip(),
+            workspace
+        )
+
+        if changed:
+            say("Archivo modificado.")
+        else:
+            say("No se modificó el archivo.")
+
+        set_last_interaction("command")
+        return True
+
+    say("No entendí la acción de archivo.")
+    set_last_interaction("command")
+    return True
 
 def main():
     print("K.A.N.Y.E. iniciado en modo escucha continua.")
@@ -336,7 +498,7 @@ def main():
     running = True
 
     while running:
-        heard_text = listen_once(timeout=4, phrase_time_limit=6)
+        heard_text = listen_once(timeout=8, phrase_time_limit=12)
 
         if not heard_text:
             continue

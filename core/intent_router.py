@@ -14,6 +14,25 @@ def detect_intent(command: str) -> dict:
             "query": ""
         }
     
+
+    file_action_words = [
+        "lee archivo",
+        "leer archivo",
+        "busca en archivo",
+        "buscar en archivo",
+        "haz backup de archivo",
+        "hacer backup de archivo",
+        "reemplaza",
+        "reemplazar"
+    ]
+
+    for word in file_action_words:
+        if text.startswith(word):
+            return {
+                "intent": "file_action",
+                "query": text
+            }
+    
     edit_mode_words = [
         "edita modo",
         "editar modo",
