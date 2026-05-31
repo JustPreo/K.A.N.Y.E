@@ -306,7 +306,7 @@ def handle_command(command: str) -> bool:
         played = play_on_youtube_music(query)
 
         if played:
-            say(f"Buscando {query} en YouTube Music.")
+            say(f"Reproduciendo {query} en YouTube Music.")
             print()
         else:
             say("No pude abrir YouTube Music.")
