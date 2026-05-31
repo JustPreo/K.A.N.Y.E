@@ -13,6 +13,7 @@ from core.mode_actions import (
 from core.speech_to_text import listen_once
 from core.text_to_speech import speak
 from core.local_llm import ask_llm
+from core.text_normalizer import normalize_text
 
 WAKE_WORDS = ["kanye", "kanie", "kan ye", "caña", "canye"]
 
@@ -168,6 +169,7 @@ def handle_command(command: str) -> bool:
 
         print(f"K.A.N.Y.E.: {answer}\n")
         speak(answer)
+
     else:
         say("No entendí el comando.")
         print()
@@ -193,6 +195,8 @@ def main():
 
         if not heard_text:
             continue
+
+        heard_text = normalize_text(heard_text)
 
         print(f"Escuché: {heard_text}")
 

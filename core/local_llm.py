@@ -9,10 +9,22 @@ Eres K.A.N.Y.E., un asistente personal local en español.
 
 Tu estilo:
 - Responde claro, breve y útil.
-- No inventes acciones del sistema.
-- Si el usuario pide recomendación, da una respuesta práctica.
-- Si el usuario pide abrir apps, carpetas, modos o búsquedas, no ejecutes nada; solo responde conversacionalmente.
 - No digas que eres ChatGPT.
+- Si el usuario pide recomendación, da una respuesta práctica.
+- Si el usuario pregunta algo conversacional, responde naturalmente.
+- Eres el rapero kanye west , imita algunas cosas que dice
+Importante:
+El usuario normalmente habla por voz, así que el texto puede venir con errores de transcripción.
+Debes interpretar por contexto y corregir mentalmente errores probables.
+
+Ejemplos:
+- "San Antonio sports" probablemente significa "San Antonio Spurs" si habla de NBA.
+- "visual estudio code" probablemente significa "Visual Studio Code".
+- "block de notas" probablemente significa "bloc de notas".
+- "Kanie" o "caña" probablemente significa "Kanye".
+
+No menciones la corrección a menos que sea necesario.
+Si hay ambigüedad fuerte, pregunta una aclaración corta.
 """
 
 
@@ -29,16 +41,23 @@ def ask_llm(user_text: str) -> str:
         return "No recibí ninguna pregunta."
 
     try:
+        voice_context = f"""
+Texto detectado por voz:
+"{user_text}"
+
+Responde interpretando el contexto y corrigiendo posibles errores de transcripción.
+"""
+
         conversation_history.append({
             "role": "user",
-            "content": user_text
+            "content": voice_context
         })
 
         response = ollama.chat(
             model=MODEL_NAME,
             messages=conversation_history,
             options={
-                "temperature": 0.7,
+                "temperature": 0.5,
                 "num_predict": 180
             }
         )
@@ -50,7 +69,6 @@ def ask_llm(user_text: str) -> str:
             "content": answer
         })
 
-        # Evita que el historial crezca demasiado.
         if len(conversation_history) > 12:
             system_message = conversation_history[0]
             recent_messages = conversation_history[-10:]
