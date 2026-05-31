@@ -14,6 +14,8 @@ from core.speech_to_text import listen_once
 from core.text_to_speech import speak
 from core.local_llm import ask_llm
 from core.text_normalizer import normalize_text
+from core.llm_intent import classify_with_llm
+
 
 WAKE_WORDS = ["kanye", "kanie", "kan ye", "caña", "canye"]
 
@@ -164,12 +166,34 @@ def handle_command(command: str) -> bool:
             print()
 
     elif intent == "chat":
-        print(f"K.A.N.Y.E.: Pensando respuesta para: {query}")
+        print(f"K.A.N.Y.E.: Analizando intención con LLM: {query}")
 
-        answer = ask_llm(query)
+        llm_result = classify_with_llm(query)
+
+        llm_intent = llm_result["intent"]
+        llm_query = llm_result["query"]
+
+        print(f"K.A.N.Y.E.: LLM interpretó: {llm_intent} | {llm_query}")
+
+        # Si el LLM decide que realmente era una acción,
+        # reutilizamos handle_command con una frase clara.
+        if llm_intent == "activate_mode":
+            return handle_command(f"activa modo {llm_query}")
+
+        elif llm_intent == "open_app":
+            return handle_command(f"abre {llm_query}")
+
+        elif llm_intent == "open_folder":
+            return handle_command(f"abre {llm_query}")
+
+        elif llm_intent == "web_search":
+            return handle_command(f"busca {llm_query}")
+
+        # Si sigue siendo conversación, ahora sí responde normal.
+        answer = ask_llm(llm_query)
 
         print(f"K.A.N.Y.E.: {answer}\n")
-        speak(answer)
+        speak(answer, use_cache=False)
 
     else:
         say("No entendí el comando.")
