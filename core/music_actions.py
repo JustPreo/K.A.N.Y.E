@@ -1,6 +1,29 @@
+import re
 import subprocess
+import sys
 import webbrowser
 from urllib.parse import quote_plus
+
+
+YOUTUBE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{11}$")
+
+
+def extract_video_id(output: str) -> str | None:
+    """
+    Busca un ID válido de YouTube dentro del texto devuelto por yt-dlp.
+    """
+    if not output:
+        return None
+
+    lines = output.strip().splitlines()
+
+    for line in lines:
+        clean_line = line.strip()
+
+        if YOUTUBE_ID_PATTERN.match(clean_line):
+            return clean_line
+
+    return None
 
 
 def search_youtube_first_video(query: str) -> str | None:
@@ -13,38 +36,37 @@ def search_youtube_first_video(query: str) -> str | None:
 
     try:
         command = [
-            "python",
+            sys.executable,
             "-m",
             "yt_dlp",
             f"ytsearch1:{query}",
             "--print",
             "%(id)s",
             "--no-playlist",
-            "--skip-download",
-            "--no-warnings"
+            "--skip-download"
         ]
 
         result = subprocess.run(
             command,
             capture_output=True,
             text=True,
-            timeout=25
+            timeout=60
         )
 
-        lines = result.stdout.strip().splitlines()
+        combined_output = f"{result.stdout}\n{result.stderr}"
 
-        if not lines:
-            print("K.A.N.Y.E.: yt-dlp no devolvió resultados.")
-            if result.stderr:
-                print(result.stderr)
-            return None
+        video_id = extract_video_id(combined_output)
 
-        video_id = lines[0].strip()
+        if video_id:
+            print(f"K.A.N.Y.E.: ID encontrado: {video_id}")
+            return video_id
 
-        if not video_id:
-            return None
-
-        return video_id
+        print("K.A.N.Y.E.: yt-dlp no devolvió un ID válido.")
+        print("STDOUT:")
+        print(result.stdout)
+        print("STDERR:")
+        print(result.stderr)
+        return None
 
     except subprocess.TimeoutExpired:
         print("K.A.N.Y.E.: La búsqueda tardó demasiado.")
