@@ -1,18 +1,18 @@
 import pyttsx3
 
 
-engine = pyttsx3.init()
-
-
-def setup_voice() -> None:
-    engine.setProperty("rate", 175)
-    engine.setProperty("volume", 1.0)
-
-
 def speak(text: str) -> None:
     if not text:
         return
 
-    setup_voice()
-    engine.say(text)
-    engine.runAndWait()
+    try:
+        engine = pyttsx3.init("sapi5")
+        engine.setProperty("rate", 170)
+        engine.setProperty("volume", 1.0)
+
+        engine.say(text)
+        engine.runAndWait()
+        engine.stop()
+
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error de voz: {error}")
