@@ -10,10 +10,10 @@ from core.mode_actions import (
     delete_mode,
     edit_mode_interactive
 )
-from core.speech_to_text import listen_once
 from core.text_to_speech import speak
 from core.local_llm import ask_llm
 from core.text_normalizer import normalize_text
+from core.wake_word import wait_for_wake_word, listen_command_after_wake, remove_wake_word
 from core.llm_intent import classify_with_llm
 from core.file_actions import read_file, search_in_file, backup_file, replace_in_file
 from core.music_actions import play_on_youtube_music
@@ -33,15 +33,6 @@ LAST_INTERACTION = {
     "type": None
 }
 
-WAKE_WORDS = [
-    "kanye",
-    "kanie",
-    "kan ye",
-    "caña",
-    "canye",
-    "calle",
-    "kanji"
-]
 
 
 def set_last_interaction(interaction_type: str) -> None:
@@ -139,15 +130,6 @@ def say(message: str) -> None:
     print(f"K.A.N.Y.E.: {message}")
     speak(message, use_cache=True)
 
-
-def remove_wake_word(text: str) -> str:
-    text = text.lower().strip()
-
-    for wake_word in WAKE_WORDS:
-        if text.startswith(wake_word):
-            return text.replace(wake_word, "", 1).strip()
-
-    return ""
 
 
 def handle_chat(query: str) -> bool:
@@ -652,9 +634,9 @@ def handle_file_action(query: str) -> bool:
     return True
 
 def main():
-    print("K.A.N.Y.E. iniciado en modo escucha continua.")
-    print("Di comandos empezando con 'Kanye'.")
-    print("Ejemplos:")
+    print("K.A.N.Y.E. iniciado en modo escucha activa.")
+    print("Primero di 'Kanye'. Luego podés decir la orden.")
+    print("También podés decir todo junto, por ejemplo:")
     print("- Kanye abre notas")
     print("- Kanye busca árboles B")
     print("- Kanye activa modo gaming")
@@ -665,19 +647,31 @@ def main():
     running = True
 
     while running:
-        heard_text = listen_once(timeout=8, phrase_time_limit=12)
+        print("Estado: esperando palabra de activación...")
+
+        heard_text = wait_for_wake_word(timeout=4, phrase_time_limit=4)
 
         if not heard_text:
             continue
 
-        heard_text = normalize_text(heard_text)
+        print(f"Wake word detectada en: {heard_text}")
 
-        print(f"Escuché: {heard_text}")
-
+        # Caso 1: el usuario dijo todo junto.
+        # Ejemplo: "Kanye abre YouTube".
         command = remove_wake_word(heard_text)
 
+        # Caso 2: el usuario solo dijo "Kanye".
+        # Entonces K.A.N.Y.E. responde y escucha la orden aparte.
         if not command:
+            say("Te escucho.")
+            print("Estado: escuchando orden...")
+            command = listen_command_after_wake(timeout=6, phrase_time_limit=10)
+
+        if not command:
+            say("No escuché la orden.")
             continue
+
+        command = normalize_text(command)
 
         print(f"Comando detectado: {command}")
 

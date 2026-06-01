@@ -9,6 +9,7 @@
         "message": "Modo sexo activado"
     },
     "gaming": {
+        "close_before": true,
         "apps": [
             "steam",
             "edge"
