@@ -143,10 +143,13 @@ def listen_once(timeout: int = 8, phrase_time_limit: int = 12) -> str:
         segments, _ = model.transcribe(
             audio,
             language=config.get("language", "es"),
-            beam_size=1,
-            best_of=1,
+            task="transcribe",
+            beam_size=5,
+            best_of=5,
+            temperature=0.0,
             vad_filter=True,
-            vad_parameters={"threshold": 0.5},
+            vad_parameters={"threshold": 0.4},
+            condition_on_previous_text=False,
         )
         return " ".join(seg.text for seg in segments).strip().lower()
 
