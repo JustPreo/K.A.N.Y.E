@@ -26,3 +26,7 @@ pyautogui
 
 # Música - búsqueda YouTube
 yt-dlp
+
+# Bandeja del sistema + ícono
+pystray
+Pillow

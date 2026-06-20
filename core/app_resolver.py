@@ -8,7 +8,7 @@ from rapidfuzz import process, fuzz
 from core.platform_utils import is_windows, is_linux
 
 
-# --- Windows ---
+# ─── Windows ──────────────────────────────────────────────────────────────────
 
 BUILTIN_WINDOWS_APPS = [
     {
@@ -40,15 +40,9 @@ BUILTIN_WINDOWS_APPS = [
 
 WINDOWS_START_MENU = [
     Path(os.environ.get("PROGRAMDATA", ""))
-    / "Microsoft"
-    / "Windows"
-    / "Start Menu"
-    / "Programs",
+    / "Microsoft" / "Windows" / "Start Menu" / "Programs",
     Path(os.environ.get("APPDATA", ""))
-    / "Microsoft"
-    / "Windows"
-    / "Start Menu"
-    / "Programs",
+    / "Microsoft" / "Windows" / "Start Menu" / "Programs",
 ]
 
 
@@ -64,44 +58,34 @@ def _get_shortcut_target(shortcut_path: Path) -> str | None:
             return None
 
         target = target.strip()
-
         if os.path.exists(target) and target.lower().endswith(".exe"):
             return target
-
         return None
     except Exception:
         return None
 
 
 def _scan_windows_apps() -> list[dict]:
-    apps = []
-
-    for app in BUILTIN_WINDOWS_APPS:
-        apps.append({**app, "type": "builtin"})
+    apps = [{**a, "type": "builtin"} for a in BUILTIN_WINDOWS_APPS]
 
     for start_path in WINDOWS_START_MENU:
         if not start_path.exists():
             continue
-
         for file in start_path.rglob("*.lnk"):
-            app_name = file.stem
             target = _get_shortcut_target(file)
-
             if target:
-                apps.append(
-                    {
-                        "name": app_name,
-                        "aliases": [app_name.lower()],
-                        "path": target,
-                        "shortcut": str(file),
-                        "type": "shortcut",
-                    }
-                )
+                apps.append({
+                    "name": file.stem,
+                    "aliases": [file.stem.lower()],
+                    "path": target,
+                    "shortcut": str(file),
+                    "type": "shortcut",
+                })
 
     return apps
 
 
-# --- Linux ---
+# ─── Linux ────────────────────────────────────────────────────────────────────
 
 BUILTIN_LINUX_APPS = [
     {
@@ -124,11 +108,6 @@ BUILTIN_LINUX_APPS = [
         "aliases": ["notas", "nota", "editor", "gedit", "texto"],
         "command": "gedit",
     },
-    {
-        "name": "Navegador",
-        "aliases": ["navegador", "browser", "firefox", "chrome", "chromium"],
-        "command": "xdg-open http://",
-    },
 ]
 
 LINUX_DESKTOP_DIRS = [
@@ -145,11 +124,7 @@ def _clean_exec(exec_str: str) -> str:
         parts = shlex.split(exec_str)
         if not parts:
             return ""
-        cmd = parts[0]
-        # Flatpak: keep full command
-        if "flatpak" in cmd:
-            return exec_str.strip()
-        return cmd
+        return exec_str.strip() if "flatpak" in parts[0] else parts[0]
     except Exception:
         return exec_str.split()[0] if exec_str.split() else ""
 
@@ -157,23 +132,19 @@ def _clean_exec(exec_str: str) -> str:
 def _parse_desktop_file(path: Path) -> dict | None:
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
-        in_desktop_entry = False
-        name: str | None = None
-        exec_cmd: str | None = None
-        no_display = False
-        hidden = False
-        generic_name: str | None = None
+        in_entry = False
+        name = generic_name = exec_cmd = None
+        no_display = hidden = False
 
         for line in content.splitlines():
             line = line.strip()
             if line == "[Desktop Entry]":
-                in_desktop_entry = True
+                in_entry = True
                 continue
             if line.startswith("[") and line != "[Desktop Entry]":
-                in_desktop_entry = False
+                in_entry = False
                 continue
-
-            if not in_desktop_entry:
+            if not in_entry:
                 continue
 
             if line.startswith("Name=") and name is None:
@@ -181,8 +152,7 @@ def _parse_desktop_file(path: Path) -> dict | None:
             elif line.startswith("GenericName=") and generic_name is None:
                 generic_name = line.split("=", 1)[1].strip()
             elif line.startswith("Exec=") and exec_cmd is None:
-                raw_exec = line.split("=", 1)[1].strip()
-                exec_cmd = _clean_exec(raw_exec)
+                exec_cmd = _clean_exec(line.split("=", 1)[1].strip())
             elif line.startswith("NoDisplay="):
                 no_display = line.split("=", 1)[1].strip().lower() == "true"
             elif line.startswith("Hidden="):
@@ -191,52 +161,47 @@ def _parse_desktop_file(path: Path) -> dict | None:
         if not name or not exec_cmd or no_display or hidden:
             return None
 
-        aliases = list(
-            {
-                name.lower(),
-                path.stem.lower(),
-                *([] if generic_name is None else [generic_name.lower()]),
-            }
-        )
+        aliases = list({
+            name.lower(),
+            path.stem.lower(),
+            *([generic_name.lower()] if generic_name else []),
+        })
 
-        return {
-            "name": name,
-            "aliases": aliases,
-            "command": exec_cmd,
-            "type": "desktop",
-        }
+        return {"name": name, "aliases": aliases, "command": exec_cmd, "type": "desktop"}
     except Exception:
         return None
 
 
 def _scan_linux_apps() -> list[dict]:
-    apps = []
-
-    for app in BUILTIN_LINUX_APPS:
-        apps.append({**app, "type": "builtin"})
-
-    seen_names: set[str] = set()
+    apps = [{**a, "type": "builtin"} for a in BUILTIN_LINUX_APPS]
+    seen: set[str] = set()
 
     for desktop_dir in LINUX_DESKTOP_DIRS:
         if not desktop_dir.exists():
             continue
-
         for file in desktop_dir.glob("*.desktop"):
             info = _parse_desktop_file(file)
-            if info and info["name"] not in seen_names:
-                seen_names.add(info["name"])
+            if info and info["name"] not in seen:
+                seen.add(info["name"])
                 apps.append(info)
 
     return apps
 
 
-# --- Unified ---
+# ─── Cache ────────────────────────────────────────────────────────────────────
 
-def scan_apps() -> list[dict]:
-    if is_windows():
-        return _scan_windows_apps()
-    return _scan_linux_apps()
+_apps_cache: list[dict] | None = None
 
+
+def scan_apps(force_refresh: bool = False) -> list[dict]:
+    global _apps_cache
+    if _apps_cache is None or force_refresh:
+        _apps_cache = _scan_windows_apps() if is_windows() else _scan_linux_apps()
+        print(f"K.A.N.Y.E.: {len(_apps_cache)} apps indexadas.")
+    return _apps_cache
+
+
+# ─── Búsqueda ─────────────────────────────────────────────────────────────────
 
 def find_best_app_match(query: str) -> dict | None:
     query = query.lower().strip()
@@ -245,27 +210,23 @@ def find_best_app_match(query: str) -> dict | None:
     if not apps:
         return None
 
-    searchable_names: list[str] = []
-    app_lookup: list[dict] = []
+    searchable: list[str] = []
+    lookup: list[dict] = []
 
     for app in apps:
-        aliases = app.get("aliases", [app["name"]])
-        for alias in aliases:
-            searchable_names.append(alias.lower())
-            app_lookup.append(app)
+        for alias in app.get("aliases", [app["name"]]):
+            searchable.append(alias.lower())
+            lookup.append(app)
 
-    match = process.extractOne(query, searchable_names, scorer=fuzz.WRatio)
-
+    match = process.extractOne(query, searchable, scorer=fuzz.WRatio)
     if not match:
         return None
 
     matched_name, score, index = match
-
     if score < 65:
         return None
 
-    selected_app = app_lookup[index]
-    selected_app["score"] = score
-    selected_app["matched_name"] = matched_name
-
-    return selected_app
+    selected = lookup[index]
+    selected["score"] = score
+    selected["matched_name"] = matched_name
+    return selected
