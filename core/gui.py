@@ -122,6 +122,18 @@ def _build_window():
     )
     btn.pack(fill=tk.X)
 
+    cfg_btn = tk.Button(
+        btn_frame,
+        text="⚙ Configuración",
+        font=(FONT[0], 9),
+        bg=BG2, fg=FG_DIM,
+        activebackground=BG3, activeforeground=FG,
+        relief=tk.FLAT, bd=0, pady=4,
+        cursor="hand2",
+        command=lambda: _open_settings(root),
+    )
+    cfg_btn.pack(fill=tk.X, pady=(4, 0))
+
     _root        = root
     _chat_box    = chat
     _status_dot  = dot
@@ -135,6 +147,14 @@ def _build_window():
 
     root.protocol("WM_DELETE_WINDOW", _on_close)
     root.mainloop()
+
+
+def _open_settings(parent=None):
+    try:
+        from core.settings_gui import open_settings
+        open_settings(parent)
+    except Exception as e:
+        print(f"K.A.N.Y.E.: Error abriendo configuración: {e}")
 
 
 def _on_button_click():
