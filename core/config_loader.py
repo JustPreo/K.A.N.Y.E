@@ -40,4 +40,13 @@ def get_config() -> dict:
         print(f"K.A.N.Y.E.: Error leyendo config.json: {error}. Usando defaults.")
         _config_cache = defaults
 
+    local_path = PROJECT_ROOT / "config" / "config.local.json"
+    if local_path.exists():
+        try:
+            with open(local_path, "r", encoding="utf-8") as f:
+                local = json.load(f)
+            _config_cache = {**_config_cache, **local}
+        except Exception as error:
+            print(f"K.A.N.Y.E.: Error leyendo config.local.json: {error}. Ignorando.")
+
     return _config_cache

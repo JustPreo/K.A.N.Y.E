@@ -181,12 +181,17 @@ def step_post_install_notes():
             "\n  Si usás Wayland y el hotkey sigue sin responder:\n"
             "    1. Ejecutá K.A.N.Y.E. con: sudo python main.py\n"
             "    2. O cambiá a sesión X11\n"
-            "    3. O el asistente activará modo terminal (presioná Enter)"
+            "    3. O el asistente activará modo terminal (presioná Enter)\n"
+            "\n  OPCIONAL — Focus mode sin contraseña (bloqueo de sitios distractores):\n"
+            "  Si querés usar 'activa modo estudio' sin que pida contraseña sudo,\n"
+            "  ejecutá: sudo visudo\n"
+            "  Y agregá esta línea (reemplazá TU_USUARIO con tu usuario real):\n"
+            "    TU_USUARIO ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/hosts"
         )
 
     print(
         "\n  RAM mínima recomendada por configuración:\n"
-        "    4-6 GB  → Cambiá chat_model a 'qwen2.5:1.5b' en config/config.json\n"
+        "    4-6 GB  → Cambiá chat_model a 'qwen2.5:1.5b' en config/config.local.json\n"
         "              y use_llm_classifier a false\n"
         "    8 GB    → Configuración actual (phi4-mini + qwen2.5:1.5b)\n"
         "    16 GB+  → Podés subir a modelos más grandes si querés\n"
@@ -194,7 +199,11 @@ def step_post_install_notes():
         "    tiny  (~39 MB)  → ultra rápido, menos preciso\n"
         "    base  (~74 MB)  → balance ideal (default)\n"
         "    small (~244 MB) → más preciso, más lento\n"
-        "  Cambialo en config/config.json → stt_whisper_model"
+        "  Cambialo en config/config.local.json → stt_whisper_model\n"
+        "\n  Archivos personales (no están en git, son tuyos):\n"
+        "    config/modes.json       → tus modos de trabajo\n"
+        "    config/sites.json       → tus sitios guardados\n"
+        "    config/config.local.json → tus overrides de config"
     )
 
 
