@@ -1,22 +1,10 @@
 {
-    "sexo": {
-        "close_before": true,
-        "apps": [],
-        "urls": [
-            "https://music.youtube.com/watch?v=tQj1kPmQXwE"
-        ],
-        "folders": [],
-        "message": "Modo sexo activado"
-    },
-    "gaming": {
-        "close_before": true,
-        "apps": [
-            "steam",
-            "edge"
-        ],
-        "urls": [],
-        "folders": [],
-        "message": "Modo gaming"
+    "trabajo": {
+        "close_before": false,
+        "apps": ["chrome", "vscode"],
+        "urls": ["https://github.com"],
+        "folders": ["documentos"],
+        "message": "Modo trabajo activado."
     },
     "estudio": {
         "close_before": false,
@@ -37,5 +25,12 @@
                 "facebook.com"
             ]
         }
+    },
+    "gaming": {
+        "close_before": true,
+        "apps": ["steam"],
+        "urls": [],
+        "folders": [],
+        "message": "Modo gaming activado."
     }
 }
