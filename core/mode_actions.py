@@ -264,37 +264,44 @@ def edit_mode_interactive(mode_name: str) -> bool:
     return False
 
 
-_MEDIA_URL_PATTERNS = re.compile(
-    r"(youtube\.com|youtu\.be|music\.youtube\.com|spotify\.com|soundcloud\.com)",
+_YOUTUBE_PATTERN = re.compile(
+    r"(youtube\.com|youtu\.be|music\.youtube\.com)",
     re.IGNORECASE,
 )
 
-_MEDIA_PLAYERS = [
-    # (ejecutable, args_antes_de_url)
-    ("mpv", []),
-    ("vlc", []),
-]
+
+def _add_autoplay_param(url: str) -> str:
+    """Agrega autoplay=1 a URLs de YouTube si no lo tienen ya."""
+    if "autoplay=1" in url:
+        return url
+    sep = "&" if "?" in url else "?"
+    return url + sep + "autoplay=1"
 
 
-def _play_media_url(url: str) -> bool:
-    """Reproduce una URL multimedia en background. Retorna True si pudo hacerlo."""
-    if not _MEDIA_URL_PATTERNS.search(url):
-        return False
+def _simulate_play_after_delay(delay: float = 4.0) -> None:
+    """Espera a que cargue el browser y simula Space para iniciar reproducción."""
+    import threading
 
-    for player, args in _MEDIA_PLAYERS:
-        if shutil.which(player):
-            try:
-                subprocess.Popen(
-                    [player, *args, url],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                print(f"K.A.N.Y.E.: Reproduciendo {url} con {player}")
-                return True
-            except Exception as e:
-                print(f"K.A.N.Y.E.: No pude usar {player}: {e}")
+    def _press_space():
+        import time
+        time.sleep(delay)
+        # Wayland: ydotool
+        if shutil.which("ydotool"):
+            subprocess.run(["ydotool", "key", "57"], capture_output=True)
+            return
+        # X11 fallback
+        if shutil.which("xdotool"):
+            subprocess.run(["xdotool", "key", "space"], capture_output=True)
 
-    return False
+    threading.Thread(target=_press_space, daemon=True).start()
+
+
+def _open_media_url(url: str) -> None:
+    """Abre una URL multimedia en el browser con autoplay y simula play."""
+    if _YOUTUBE_PATTERN.search(url):
+        url = _add_autoplay_param(url)
+        _simulate_play_after_delay(delay=4.0)
+    webbrowser.open(url)
 
 
 def activate_mode(mode_name: str) -> bool:
@@ -329,9 +336,8 @@ def activate_mode(mode_name: str) -> bool:
             print(f"K.A.N.Y.E.: No encontré la app: {app_query}")
 
     for url in urls:
-        if not _play_media_url(url):
-            print(f"K.A.N.Y.E.: Abriendo URL: {url}")
-            webbrowser.open(url)
+        print(f"K.A.N.Y.E.: Abriendo URL: {url}")
+        _open_media_url(url)
 
     for folder in folders:
         print(f"K.A.N.Y.E.: Abriendo carpeta: {folder}")
