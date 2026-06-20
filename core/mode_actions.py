@@ -279,16 +279,14 @@ def _add_autoplay_param(url: str) -> str:
 
 
 def _playerctl_play_after_delay(delay: float = 4.0) -> None:
-    """Espera a que el browser registre el player MPRIS y lanza playerctl play."""
-    import threading
-    import time
-
-    def _play():
-        time.sleep(delay)
-        subprocess.run(["playerctl", "play"], capture_output=True)
-
+    """Lanza playerctl play en un proceso desacoplado después de 'delay' segundos."""
     if shutil.which("playerctl"):
-        threading.Thread(target=_play, daemon=True).start()
+        subprocess.Popen(
+            ["bash", "-c", f"sleep {int(delay)} && playerctl play"],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
 def _open_media_url(url: str) -> None:
