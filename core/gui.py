@@ -171,6 +171,8 @@ def _on_close():
     if _root:
         _root.destroy()
         _root = None
+    import os, sys
+    os.kill(os.getpid(), 9)
 
 
 def _stats_loop():
