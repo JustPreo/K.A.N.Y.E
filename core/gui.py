@@ -7,6 +7,7 @@ import time
 import tkinter as tk
 from tkinter import scrolledtext
 
+_suppress_close = False   # True mientras KANYE cierra otras apps
 _root: tk.Tk | None = None
 _chat_box = None
 _status_dot = None
@@ -235,12 +236,14 @@ def _on_button_click():
 
 
 def _on_close():
+    if _suppress_close:
+        return
     global _root, _available
     _available = False
     if _root:
         _root.destroy()
         _root = None
-    import os, sys
+    import os
     os.kill(os.getpid(), 9)
 
 
@@ -356,6 +359,11 @@ def _append(text: str, tag: str) -> None:
 
 def is_available() -> bool:
     return _available
+
+
+def suppress_close(value: bool) -> None:
+    global _suppress_close
+    _suppress_close = value
 
 
 def set_kb_callback(fn) -> None:
