@@ -1,4 +1,5 @@
 import os
+import signal
 import sys
 import threading
 from pathlib import Path
@@ -504,9 +505,8 @@ def _check_single_instance() -> None:
     if PID_FILE.exists():
         try:
             pid = int(PID_FILE.read_text())
-            import os, signal
             os.kill(pid, signal.SIGTERM)
-            import time; time.sleep(0.5)
+            time.sleep(0.5)
         except Exception:
             pass
     PID_FILE.write_text(str(os.getpid()))
@@ -520,9 +520,7 @@ def _cleanup_pid() -> None:
 
 
 def main() -> None:
-    import os, atexit
-    from pathlib import Path as _Path
-
+    import atexit
     _check_single_instance()
     atexit.register(_cleanup_pid)
 
