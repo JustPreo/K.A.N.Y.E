@@ -370,9 +370,8 @@ def handle_command(command: str) -> bool:
             say("Decime qué canción querés escuchar.")
             set_last_interaction("command")
             return True
-        print(f"K.A.N.Y.E.: Buscando en YouTube Music: {query}")
+        say(f"Buscando {query} en YouTube Music.")
         play_on_youtube_music(query)
-        say(response("music_playing", name=query))
         print()
         set_last_interaction("command")
 
