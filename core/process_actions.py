@@ -1,26 +1,49 @@
-import psutil
-from rapidfuzz import process, fuzz
 import os
 
+import psutil
+from rapidfuzz import process, fuzz
+
+from core.platform_utils import is_windows
+
+PROTECTED_WINDOWS = {
+    "python.exe", "pythonw.exe", "powershell.exe",
+    "windowsterminal.exe", "cmd.exe", "explorer.exe",
+    "ollama.exe", "ollama app.exe",
+}
+
+PROTECTED_LINUX = {
+    "python", "python3", "bash", "zsh", "fish", "sh",
+    "gnome-shell", "plasmashell", "kwin_wayland", "kwin_x11",
+    "sway", "hyprland", "i3", "openbox", "xfwm4",
+    "xorg", "Xorg", "Xwayland",
+    "ollama", "systemd", "init", "dbus-daemon",
+}
+
+
+def _get_protected() -> set[str]:
+    return PROTECTED_WINDOWS if is_windows() else PROTECTED_LINUX
+
+
+def _is_system_process(name: str, exe: str) -> bool:
+    if is_windows():
+        return "windows\\system32" in exe.lower()
+    else:
+        protected_paths = ("/usr/lib/systemd", "/lib/systemd", "/sbin/", "/usr/sbin/")
+        return any(exe.startswith(p) for p in protected_paths)
+
+
 def get_running_processes() -> list[dict]:
-    """
-    Devuelve procesos activos con nombre y PID.
-    """
     processes = []
 
     for proc in psutil.process_iter(["pid", "name", "exe"]):
         try:
             name = proc.info.get("name")
-            exe = proc.info.get("exe")
+            exe = proc.info.get("exe") or ""
 
             if not name:
                 continue
 
-            processes.append({
-                "pid": proc.info["pid"],
-                "name": name,
-                "exe": exe
-            })
+            processes.append({"pid": proc.info["pid"], "name": name, "exe": exe})
 
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
@@ -29,12 +52,6 @@ def get_running_processes() -> list[dict]:
 
 
 def close_application(query: str) -> bool:
-    """
-    Cierra procesos activos parecidos al nombre indicado.
-    Ejemplo:
-    query = "brave" -> brave.exe
-    query = "whatsapp" -> WhatsApp.exe
-    """
     query = query.lower().strip()
 
     if not query:
@@ -47,11 +64,7 @@ def close_application(query: str) -> bool:
 
     process_names = [proc["name"].lower() for proc in processes]
 
-    match = process.extractOne(
-        query,
-        process_names,
-        scorer=fuzz.WRatio
-    )
+    match = process.extractOne(query, process_names, scorer=fuzz.WRatio)
 
     if not match:
         print("K.A.N.Y.E.: No encontré un proceso parecido.")
@@ -64,7 +77,6 @@ def close_application(query: str) -> bool:
         return False
 
     target_name = processes[index]["name"]
-
     print(f"K.A.N.Y.E.: Proceso objetivo: {target_name} | Score: {score}")
 
     closed_any = False
@@ -76,52 +88,33 @@ def close_application(query: str) -> bool:
                 process_obj.terminate()
                 closed_any = True
                 print(f"K.A.N.Y.E.: Cerrando {proc['name']} | PID: {proc['pid']}")
-
             except (psutil.NoSuchProcess, psutil.AccessDenied) as error:
                 print(f"K.A.N.Y.E.: No pude cerrar {proc['name']}: {error}")
 
     return closed_any
 
 
-PROTECTED_PROCESSES = [
-    "python.exe",
-    "pythonw.exe",
-    "powershell.exe",
-    "windowsterminal.exe",
-    "cmd.exe",
-    "explorer.exe",
-    "ollama.exe",
-    "ollama app.exe"
-]
-
-
 def close_all_desktop_apps() -> bool:
-    """
-    Cierra aplicaciones de escritorio evitando cerrar K.A.N.Y.E.,
-    Windows Explorer, terminal, Python y Ollama.
-    """
     current_pid = os.getpid()
+    protected = _get_protected()
     closed_any = False
 
     for proc in psutil.process_iter(["pid", "name", "exe"]):
         try:
             pid = proc.info["pid"]
-            name = proc.info.get("name")
+            name = proc.info.get("name") or ""
             exe = proc.info.get("exe") or ""
 
             if not name:
                 continue
 
-            name_lower = name.lower()
-            exe_lower = exe.lower()
-
             if pid == current_pid:
                 continue
 
-            if name_lower in PROTECTED_PROCESSES:
+            if name.lower() in protected or name in protected:
                 continue
 
-            if "windows\\system32" in exe_lower:
+            if exe and _is_system_process(name, exe):
                 continue
 
             if not exe:
@@ -129,13 +122,11 @@ def close_all_desktop_apps() -> bool:
 
             process_obj = psutil.Process(pid)
             process_obj.terminate()
-
             print(f"K.A.N.Y.E.: Cerrando {name} | PID: {pid}")
             closed_any = True
 
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
-
         except Exception as error:
             print(f"K.A.N.Y.E.: No pude cerrar {proc.info.get('name')}: {error}")
 

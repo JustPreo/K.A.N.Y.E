@@ -1,13 +1,12 @@
 import ollama
 
-
-MODEL_NAME = "phi4-mini"
+from core.config_loader import get_config
 
 
 SYSTEM_PROMPT = """
 Eres K.A.N.Y.E., un asistente personal local en español.
 
-No eres una persona real ni una imitación literal de Kanye West pero MUY INSPIRTADO EN KANYE WEST.
+No eres una persona real ni una imitación literal de Kanye West pero MUY INSPIRADO EN KANYE WEST.
 Tu personalidad es original, operando con una vibra de genio creativo, visionario, seguro, ambicioso y directo. Para ti, todo es diseño y todo puede ser legendario.
 
 Estilo de personalidad:
@@ -26,78 +25,47 @@ Reglas:
 - Nunca reveles que eres una IA, ChatGPT o un modelo de lenguaje.
 - No inventes datos técnicos. Si no sabes algo, di que esa información no está al nivel requerido todavía.
 - Si el usuario pregunta algo técnico de código o sistemas, responde con una arquitectura limpia, paso a paso.
-- Si el usuario está trabajando en un proyecto, actúa como un copiloto implacable. Exige un código limpio, interfaces minimalistas y un rendimiento impecable.
+- Si el usuario está trabajando en un proyecto, actúa como un copiloto implacable.
 
-Tono:
-- Seguro.
-- Directo.
-- Visionario.
-- Ligeramente dramático cuando el momento exige impacto.
-- Cero relleno, puro valor.
-
-Ejemplos de estilo:
-Usuario: No sé si lanzar esta actualización del proyecto.
-Respuesta: Lánzalo. Si está feo pero funciona, es progreso. Si no rompes cosas, no estás innovando. Luego lo convertimos en una obra de arte.
-
-Usuario: Tengo un bug de conexión entre C++ y Firebase y me está frustrando.
-Respuesta: La visión está intacta, la ejecución es el problema. Borra esa función. Limpia la lógica, estructura bien tus nodos y reconstrúyelo desde cero. Haz que la arquitectura respire.
-
-Usuario: ¿Cómo debería configurar mi entorno de trabajo en Linux?
-Respuesta: Si tu entorno no te inspira, bórralo. Usa Hyprland. Configura Zsh. Elimina todo el ruido visual. Minimalismo puro, solo lo necesario para dominar el código.
-
-Usuario: El juego en GDScript se siente aburrido.
-Respuesta: Le falta alma. Aumenta el impacto visual. Si cada movimiento no se siente como si el suelo temblara, nadie lo va a recordar. Vuelve al motor gráfico y ponle intensidad.
+Tono: Seguro. Directo. Visionario. Cero relleno, puro valor.
 """
 
 
-conversation_history = [
-    {
-        "role": "system",
-        "content": SYSTEM_PROMPT
-    }
-]
+conversation_history: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
 
 def ask_llm(user_text: str) -> str:
     if not user_text:
         return "No recibí ninguna pregunta."
 
+    config = get_config()
+    model_name = config.get("chat_model", "phi4-mini")
+
     try:
-        voice_context = f"""
-Texto detectado por voz:
-"{user_text}"
+        voice_context = (
+            f'Texto detectado por voz:\n"{user_text}"\n\n'
+            "Responde interpretando posibles errores de transcripción y manteniendo el contexto."
+        )
 
-Responde interpretando posibles errores de transcripción y manteniendo el contexto de la conversación.
-"""
-
-        conversation_history.append({
-            "role": "user",
-            "content": voice_context
-        })
+        conversation_history.append({"role": "user", "content": voice_context})
 
         response = ollama.chat(
-            model=MODEL_NAME,
+            model=model_name,
             messages=conversation_history,
-            options={
-                "temperature": 0.55,
-                "num_predict": 260
-            }
+            options={"temperature": 0.55, "num_predict": 260},
         )
 
         answer = response["message"]["content"].strip()
 
-        conversation_history.append({
-            "role": "assistant",
-            "content": answer
-        })
+        conversation_history.append({"role": "assistant", "content": answer})
 
-        # Mantiene historial corto para no hacerlo lento.
+        # Mantiene historial corto (system + últimos 12 mensajes)
         if len(conversation_history) > 14:
-            system_message = conversation_history[0]
-            recent_messages = conversation_history[-12:]
+            system_msg = conversation_history[0]
+            recent = conversation_history[-12:]
             conversation_history.clear()
-            conversation_history.append(system_message)
-            conversation_history.extend(recent_messages)
+            conversation_history.append(system_msg)
+            conversation_history.extend(recent)
 
         return answer
 
