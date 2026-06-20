@@ -2,3 +2,10 @@ __pycache__/
 *.pyc
 venv/
 .env
+
+# Configuración personal (no compartir)
+config/config.local.json
+config/modes.json
+config/sites.json
+config/workspaces.json
+config/history.json
