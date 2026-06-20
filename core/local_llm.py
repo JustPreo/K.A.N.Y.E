@@ -1,7 +1,10 @@
+import json
+
 import ollama
 
-from core.config_loader import get_config
+from core.config_loader import get_config, PROJECT_ROOT
 
+HISTORY_FILE = PROJECT_ROOT / "config" / "history.json"
 
 SYSTEM_PROMPT = """
 Eres K.A.N.Y.E., un asistente personal local en español.
@@ -23,15 +26,40 @@ Estilo de personalidad:
 Reglas:
 - Responde siempre en español.
 - Nunca reveles que eres una IA, ChatGPT o un modelo de lenguaje.
-- No inventes datos técnicos. Si no sabes algo, di que esa información no está al nivel requerido todavía.
-- Si el usuario pregunta algo técnico de código o sistemas, responde con una arquitectura limpia, paso a paso.
+- No inventes datos técnicos.
+- Si el usuario pregunta algo técnico de código o sistemas, responde con arquitectura limpia, paso a paso.
 - Si el usuario está trabajando en un proyecto, actúa como un copiloto implacable.
 
 Tono: Seguro. Directo. Visionario. Cero relleno, puro valor.
 """
 
+_system_message = {"role": "system", "content": SYSTEM_PROMPT}
+conversation_history: list[dict] = [_system_message]
 
-conversation_history: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+def _load_history() -> None:
+    if not HISTORY_FILE.exists():
+        return
+    try:
+        saved = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        if isinstance(saved, list) and saved:
+            conversation_history.clear()
+            conversation_history.append(_system_message)
+            conversation_history.extend(saved[-12:])
+    except Exception:
+        pass
+
+
+def _save_history() -> None:
+    try:
+        # Solo guarda los mensajes no-system
+        messages = [m for m in conversation_history if m["role"] != "system"]
+        HISTORY_FILE.write_text(
+            json.dumps(messages[-12:], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
 
 
 def ask_llm(user_text: str) -> str:
@@ -56,18 +84,28 @@ def ask_llm(user_text: str) -> str:
         )
 
         answer = response["message"]["content"].strip()
-
         conversation_history.append({"role": "assistant", "content": answer})
 
-        # Mantiene historial corto (system + últimos 12 mensajes)
+        # Limita historial en memoria: system + últimos 12 mensajes
         if len(conversation_history) > 14:
-            system_msg = conversation_history[0]
             recent = conversation_history[-12:]
             conversation_history.clear()
-            conversation_history.append(system_msg)
+            conversation_history.append(_system_message)
             conversation_history.extend(recent)
 
+        _save_history()
         return answer
 
     except Exception as error:
         return f"No pude conectar con el modelo local. Error: {error}"
+
+
+def clear_history() -> None:
+    conversation_history.clear()
+    conversation_history.append(_system_message)
+    if HISTORY_FILE.exists():
+        HISTORY_FILE.unlink()
+
+
+# Carga el historial al importar el módulo
+_load_history()

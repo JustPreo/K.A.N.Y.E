@@ -1,3 +1,7 @@
+import sys
+import threading
+import time
+
 import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
@@ -5,6 +9,7 @@ from faster_whisper import WhisperModel
 from core.config_loader import get_config
 
 _model: WhisperModel | None = None
+_calibrated_threshold: int | None = None
 
 
 def _get_model() -> WhisperModel:
@@ -17,6 +22,49 @@ def _get_model() -> WhisperModel:
     return _model
 
 
+def set_calibrated_threshold(threshold: int) -> None:
+    global _calibrated_threshold
+    _calibrated_threshold = threshold
+
+
+def _get_threshold() -> int:
+    if _calibrated_threshold is not None:
+        return _calibrated_threshold
+    config = get_config()
+    return config.get("stt_silence_threshold", 500)
+
+
+# ─── Indicador visual en terminal ────────────────────────────────────────────
+
+_stop_indicator = threading.Event()
+
+
+def _run_indicator() -> None:
+    frames = ["⏺ GRABANDO   ", "⏺ GRABANDO.  ", "⏺ GRABANDO.. ", "⏺ GRABANDO..."]
+    i = 0
+    while not _stop_indicator.is_set():
+        sys.stdout.write(f"\r  {frames[i % len(frames)]}")
+        sys.stdout.flush()
+        time.sleep(0.35)
+        i += 1
+    sys.stdout.write("\r" + " " * 25 + "\r")
+    sys.stdout.flush()
+
+
+def _start_indicator() -> threading.Thread:
+    _stop_indicator.clear()
+    t = threading.Thread(target=_run_indicator, daemon=True)
+    t.start()
+    return t
+
+
+def _stop_indicator_thread(t: threading.Thread) -> None:
+    _stop_indicator.set()
+    t.join(timeout=1)
+
+
+# ─── Grabación con detección de silencio ─────────────────────────────────────
+
 def _record_until_silence(
     sample_rate: int = 16000,
     silence_threshold: int = 500,
@@ -24,10 +72,6 @@ def _record_until_silence(
     max_secs: float = 10.0,
     initial_wait_secs: float = 3.0,
 ) -> np.ndarray:
-    """
-    Graba audio desde el micrófono hasta detectar silencio o alcanzar el límite.
-    Espera hasta initial_wait_secs para que el usuario empiece a hablar.
-    """
     chunk_size = 1024
     all_frames: list[np.ndarray] = []
     silent_chunks = 0
@@ -70,24 +114,31 @@ def _record_until_silence(
     return audio.astype(np.float32) / 32768.0
 
 
-def listen_once(timeout: int = 8, phrase_time_limit: int = 12) -> str:
-    try:
-        config = get_config()
-        silence_threshold = config.get("stt_silence_threshold", 500)
-        silence_secs = config.get("stt_silence_secs", 1.5)
-        max_secs = config.get("stt_max_secs", 10.0)
+# ─── API pública ─────────────────────────────────────────────────────────────
 
+def listen_once(timeout: int = 8, phrase_time_limit: int = 12) -> str:
+    config = get_config()
+    silence_threshold = _get_threshold()
+    silence_secs = config.get("stt_silence_secs", 1.5)
+    max_secs = config.get("stt_max_secs", 10.0)
+
+    indicator = _start_indicator()
+
+    try:
         audio = _record_until_silence(
             silence_threshold=silence_threshold,
             silence_secs=silence_secs,
             max_secs=min(float(phrase_time_limit), max_secs),
             initial_wait_secs=float(timeout),
         )
+    finally:
+        _stop_indicator_thread(indicator)
 
-        # Menos de 0.4 segundos de audio = nada útil
-        if len(audio) < 16000 * 0.4:
-            return ""
+    # Menos de 0.4s de audio = nada útil
+    if len(audio) < 16000 * 0.4:
+        return ""
 
+    try:
         model = _get_model()
         segments, _ = model.transcribe(
             audio,
@@ -97,9 +148,7 @@ def listen_once(timeout: int = 8, phrase_time_limit: int = 12) -> str:
             vad_filter=True,
             vad_parameters={"threshold": 0.5},
         )
-
-        text = " ".join(seg.text for seg in segments).strip().lower()
-        return text
+        return " ".join(seg.text for seg in segments).strip().lower()
 
     except Exception as error:
         print(f"K.A.N.Y.E.: Error en STT: {error}")
