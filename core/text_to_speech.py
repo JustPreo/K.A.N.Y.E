@@ -1,11 +1,11 @@
 import hashlib
-import io
+import struct
 import tempfile
 import wave
 from pathlib import Path
 
 import sounddevice as sd
-import soundfile as sf
+import numpy as np
 
 from core.config_loader import get_config, PROJECT_ROOT
 
@@ -52,16 +52,23 @@ def _synthesize_to_wav(text: str, wav_path: Path) -> bool:
     try:
         voice = _get_voice()
         with wave.open(str(wav_path), "wb") as wav_file:
-            voice.synthesize(text, wav_file)
+            voice.synthesize_wav(text, wav_file, set_wav_format=True)
         return True
     except Exception as error:
+        wav_path.unlink(missing_ok=True)
         print(f"K.A.N.Y.E.: Error sintetizando voz: {error}")
         return False
 
 
 def _play_wav(wav_path: Path) -> None:
-    data, sample_rate = sf.read(str(wav_path), dtype="float32")
-    sd.play(data, sample_rate)
+    with wave.open(str(wav_path), "rb") as wf:
+        sample_rate = wf.getframerate()
+        n_channels  = wf.getnchannels()
+        raw         = wf.readframes(wf.getnframes())
+    audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    if n_channels > 1:
+        audio = audio.reshape(-1, n_channels)
+    sd.play(audio, sample_rate)
     sd.wait()
 
 
