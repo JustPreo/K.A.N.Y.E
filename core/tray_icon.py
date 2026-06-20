@@ -74,5 +74,14 @@ def start(on_quit=None) -> None:
         menu=menu,
     )
 
-    thread = threading.Thread(target=_icon.run, daemon=True)
+    def _run_silent():
+        import os, contextlib
+        with open(os.devnull, "w") as devnull:
+            with contextlib.redirect_stderr(devnull):
+                try:
+                    _icon.run()
+                except Exception:
+                    pass
+
+    thread = threading.Thread(target=_run_silent, daemon=True)
     thread.start()
