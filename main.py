@@ -1,5 +1,7 @@
+import os
 import sys
 import threading
+from pathlib import Path
 
 from core.intent_router import detect_intent
 from core.app_resolver import find_best_app_match, scan_apps
@@ -495,7 +497,35 @@ def run_text_mode() -> None:
 
 # ─── Inicio ───────────────────────────────────────────────────────────────────
 
+PID_FILE = Path("/tmp/kanye.pid") if sys.platform != "win32" else Path("kanye.pid")
+
+
+def _check_single_instance() -> None:
+    if PID_FILE.exists():
+        try:
+            pid = int(PID_FILE.read_text())
+            import os, signal
+            os.kill(pid, signal.SIGTERM)
+            import time; time.sleep(0.5)
+        except Exception:
+            pass
+    PID_FILE.write_text(str(os.getpid()))
+
+
+def _cleanup_pid() -> None:
+    try:
+        PID_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
 def main() -> None:
+    import os, atexit
+    from pathlib import Path as _Path
+
+    _check_single_instance()
+    atexit.register(_cleanup_pid)
+
     config = get_config()
     hotkey = config.get("hotkey", "ctrl+f9")
 
