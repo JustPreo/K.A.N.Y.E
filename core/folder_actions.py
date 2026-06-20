@@ -1,6 +1,7 @@
-import os
 import subprocess
 from pathlib import Path
+
+from core.platform_utils import is_windows
 
 
 def get_folder_path(folder_name: str) -> Path | None:
@@ -10,19 +11,14 @@ def get_folder_path(folder_name: str) -> Path | None:
     folders = {
         "descargas": home / "Downloads",
         "downloads": home / "Downloads",
-
         "documentos": home / "Documents",
         "documents": home / "Documents",
-
         "escritorio": home / "Desktop",
         "desktop": home / "Desktop",
-
         "imágenes": home / "Pictures",
         "imagenes": home / "Pictures",
         "pictures": home / "Pictures",
-
         "videos": home / "Videos",
-
         "música": home / "Music",
         "musica": home / "Music",
         "music": home / "Music",
@@ -41,8 +37,11 @@ def open_folder(folder_name: str) -> bool:
         return False
 
     try:
-        subprocess.Popen(["explorer", str(folder_path)])
+        if is_windows():
+            subprocess.Popen(["explorer", str(folder_path)])
+        else:
+            subprocess.Popen(["xdg-open", str(folder_path)])
         return True
     except Exception as error:
-        print(f"Error al abrir carpeta: {error}")
+        print(f"K.A.N.Y.E.: Error al abrir carpeta: {error}")
         return False

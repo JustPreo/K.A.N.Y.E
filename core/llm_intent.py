@@ -1,20 +1,13 @@
 import json
 import ollama
 
-
-MODEL_NAME = "qwen2.5:1.5b"
+from core.config_loader import get_config
 
 
 ALLOWED_INTENTS = [
-    "open_app",
-    "open_folder",
-    "web_search",
-    "activate_mode",
-    "play_music",
-    "close_app",
-    "chat"
+    "open_app", "open_folder", "web_search",
+    "activate_mode", "play_music", "close_app", "chat",
 ]
-
 
 SYSTEM_PROMPT = """
 Eres un clasificador de intención para un asistente local llamado K.A.N.Y.E.
@@ -32,140 +25,68 @@ Intenciones permitidas:
 
 Reglas estrictas:
 - Responde SOLO con JSON válido.
-- No expliques nada.
-- No uses markdown.
+- No expliques nada. No uses markdown.
 - Si hay duda, usa chat.
 - Si el usuario pregunta "qué", "cuál", "cómo", "por qué", "crees", "opinas", "recomiendas", usa chat.
 - Si el usuario está corrigiendo o continuando una conversación, usa chat.
-- Si el usuario menciona deportes, equipos, películas, clases o temas generales sin pedir acción directa, usa chat.
-- No inventes comandos.
-- No conviertas una conversación en open_app.
 - Solo usa open_app si claramente pide abrir una app.
 - Solo usa close_app si claramente pide cerrar una app.
 - Solo usa play_music si claramente pide poner, reproducir o escuchar música.
 - Solo usa web_search si claramente pide buscar, googlear o investigar.
 
 Formato obligatorio:
-{
-  "intent": "chat",
-  "query": "texto útil"
-}
+{"intent": "chat", "query": "texto útil"}
 
 Ejemplos:
-Usuario: prepárame para jugar
-Respuesta:
-{"intent": "activate_mode", "query": "gaming"}
-
-Usuario: quiero estudiar
-Respuesta:
-{"intent": "activate_mode", "query": "estudio"}
-
-Usuario: quiero programar un rato
-Respuesta:
-{"intent": "activate_mode", "query": "programacion"}
-
-Usuario: abre algo para escribir
-Respuesta:
-{"intent": "open_app", "query": "notas"}
-
-Usuario: cierra brave
-Respuesta:
-{"intent": "close_app", "query": "brave"}
-
-Usuario: pon runaway kanye west
-Respuesta:
-{"intent": "play_music", "query": "runaway kanye west"}
-
-Usuario: quiero escuchar after hours
-Respuesta:
-{"intent": "play_music", "query": "after hours"}
-
-Usuario: busca información sobre árboles B
-Respuesta:
-{"intent": "web_search", "query": "árboles B"}
-
-Usuario: qué opinas de los San Antonio Spurs
-Respuesta:
-{"intent": "chat", "query": "qué opinas de los San Antonio Spurs"}
-
-Usuario: pero ahorita solo quedan 3 equipos
-Respuesta:
-{"intent": "chat", "query": "pero ahorita solo quedan 3 equipos"}
-
-Usuario: y quién crees que gane
-Respuesta:
-{"intent": "chat", "query": "y quién crees que gane"}
-
-Usuario: san antonio sports
-Respuesta:
-{"intent": "chat", "query": "san antonio spurs"}
+Usuario: prepárame para jugar -> {"intent": "activate_mode", "query": "gaming"}
+Usuario: quiero estudiar -> {"intent": "activate_mode", "query": "estudio"}
+Usuario: abre algo para escribir -> {"intent": "open_app", "query": "notas"}
+Usuario: cierra brave -> {"intent": "close_app", "query": "brave"}
+Usuario: pon runaway kanye west -> {"intent": "play_music", "query": "runaway kanye west"}
+Usuario: busca información sobre árboles B -> {"intent": "web_search", "query": "árboles B"}
+Usuario: qué opinas de los San Antonio Spurs -> {"intent": "chat", "query": "qué opinas de los San Antonio Spurs"}
+Usuario: pero ahorita solo quedan 3 equipos -> {"intent": "chat", "query": "pero ahorita solo quedan 3 equipos"}
 """
 
 
-def clean_json_response(text: str) -> str:
-    """
-    Limpia respuestas por si el modelo mete texto extra.
-    """
+def _clean_json(text: str) -> str:
     text = text.strip()
-
     start = text.find("{")
     end = text.rfind("}")
-
     if start == -1 or end == -1:
         return ""
-
-    return text[start:end + 1]
+    return text[start : end + 1]
 
 
 def classify_with_llm(user_text: str) -> dict:
     if not user_text:
-        return {
-            "intent": "chat",
-            "query": ""
-        }
+        return {"intent": "chat", "query": ""}
+
+    config = get_config()
+    model_name = config.get("intent_model", "qwen2.5:1.5b")
 
     try:
         response = ollama.chat(
-            model=MODEL_NAME,
+            model=model_name,
             messages=[
-                {
-                    "role": "system",
-                    "content": SYSTEM_PROMPT
-                },
-                {
-                    "role": "user",
-                    "content": user_text
-                }
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_text},
             ],
-            options={
-                "temperature": 0,
-                "num_predict": 80
-            }
+            options={"temperature": 0, "num_predict": 80},
         )
 
-        raw_answer = response["message"]["content"].strip()
-        cleaned_answer = clean_json_response(raw_answer)
-
-        data = json.loads(cleaned_answer)
+        raw = response["message"]["content"].strip()
+        cleaned = _clean_json(raw)
+        data = json.loads(cleaned)
 
         intent = data.get("intent", "chat")
         query = data.get("query", user_text)
 
         if intent not in ALLOWED_INTENTS:
-            return {
-                "intent": "chat",
-                "query": user_text
-            }
+            return {"intent": "chat", "query": user_text}
 
-        return {
-            "intent": intent,
-            "query": query
-        }
+        return {"intent": intent, "query": query}
 
     except Exception as error:
-        print(f"K.A.N.Y.E.: Error clasificando intención con LLM: {error}")
-
-        return {
-            "intent": "chat",
-            "query": user_text
-        }
+        print(f"K.A.N.Y.E.: Error clasificando con LLM: {error}")
+        return {"intent": "chat", "query": user_text}

@@ -1,0 +1,28 @@
+# Audio
+sounddevice
+soundfile
+numpy
+
+# STT - Whisper offline (CPU, int8 optimizado)
+faster-whisper
+
+# TTS - Piper (Python API, sin binario externo)
+piper-tts
+
+# Reconocimiento difuso de apps/procesos
+rapidfuzz
+
+# LLM local
+ollama
+
+# Hotkey global (cross-platform)
+pynput
+
+# Gestión de procesos
+psutil
+
+# Automatización de teclado multimedia (Windows)
+pyautogui
+
+# Música - búsqueda YouTube
+yt-dlp
