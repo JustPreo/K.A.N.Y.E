@@ -328,9 +328,14 @@ def activate_mode(mode_name: str) -> bool:
         else:
             print(f"K.A.N.Y.E.: No encontré la app: {app_query}")
 
-    for url in urls:
-        print(f"K.A.N.Y.E.: Abriendo URL: {url}")
-        _open_media_url(url)
+    if urls:
+        import threading, time
+        def _open_urls():
+            time.sleep(2.5)   # esperar a que el TTS termine antes de abrir media
+            for url in urls:
+                print(f"K.A.N.Y.E.: Abriendo URL: {url}")
+                _open_media_url(url)
+        threading.Thread(target=_open_urls, daemon=True).start()
 
     for folder in folders:
         print(f"K.A.N.Y.E.: Abriendo carpeta: {folder}")
