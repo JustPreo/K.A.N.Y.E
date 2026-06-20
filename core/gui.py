@@ -13,7 +13,13 @@ _status_dot = None
 _status_label = None
 _mode_label = None
 _stats_label = None
+_player_label = None
+_player_bar = None
+_kb_frame = None
+_kb_entry = None
+_kb_active = False
 _trigger_callback = None
+_kb_callback = None       # fn(text) → llamado al enviar comando por teclado
 _available = False
 
 STATE_COLORS = {
@@ -80,6 +86,29 @@ def _build_window():
     mlabel = tk.Label(mode_bar, text="Modo: —", font=FONT_SM, bg=BG3, fg=FG_DIM)
     mlabel.pack(side=tk.LEFT)
 
+    # ── Player bar ────────────────────────────────────────────────────────────
+    player_bar = tk.Frame(root, bg="#0A1A0A", pady=3, padx=12)
+
+    plabel = tk.Label(
+        player_bar,
+        text="♫ Sin reproducción",
+        font=FONT_SM, bg="#0A1A0A", fg="#3A8A3A",
+        anchor="w",
+    )
+    plabel.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    stop_btn = tk.Button(
+        player_bar,
+        text="■",
+        font=(FONT[0], 9, "bold"),
+        bg="#0A1A0A", fg="#3A8A3A",
+        activebackground="#0A1A0A", activeforeground="#60FF60",
+        relief=tk.FLAT, bd=0, padx=6,
+        cursor="hand2",
+        command=lambda: _stop_player(),
+    )
+    stop_btn.pack(side=tk.RIGHT)
+
     # ── Chat ──────────────────────────────────────────────────────────────────
     chat_frame = tk.Frame(root, bg=BG)
     chat_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(8, 0))
@@ -134,12 +163,52 @@ def _build_window():
     )
     cfg_btn.pack(fill=tk.X, pady=(4, 0))
 
+    kb_toggle = tk.Button(
+        btn_frame,
+        text="⌨ Modo teclado",
+        font=(FONT[0], 9),
+        bg=BG2, fg=FG_DIM,
+        activebackground=BG3, activeforeground=FG,
+        relief=tk.FLAT, bd=0, pady=4,
+        cursor="hand2",
+        command=lambda: _toggle_keyboard_mode(kb_toggle, kb_frame),
+    )
+    kb_toggle.pack(fill=tk.X, pady=(4, 0))
+
+    kb_frame = tk.Frame(root, bg=BG2, pady=4, padx=8)
+
+    kb_entry = tk.Entry(
+        kb_frame,
+        bg=BG3, fg=FG,
+        insertbackground=FG,
+        font=FONT,
+        relief=tk.FLAT, bd=0,
+    )
+    kb_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=5, padx=(0, 6))
+    kb_entry.bind("<Return>", lambda e: _on_kb_send(kb_entry))
+
+    kb_send = tk.Button(
+        kb_frame,
+        text="Enviar",
+        font=FONT_SM,
+        bg=ACCENT, fg=BG,
+        activebackground="#A88000", activeforeground=BG,
+        relief=tk.FLAT, bd=0, padx=8, pady=4,
+        cursor="hand2",
+        command=lambda: _on_kb_send(kb_entry),
+    )
+    kb_send.pack(side=tk.RIGHT)
+
     _root        = root
     _chat_box    = chat
     _status_dot  = dot
     _status_label = slabel
     _mode_label  = mlabel
     _stats_label = stlabel
+    _player_label = plabel
+    _player_bar  = player_bar
+    _kb_frame    = kb_frame
+    _kb_entry    = kb_entry
     _available   = True
 
     # Stats loop
@@ -173,6 +242,34 @@ def _on_close():
         _root = None
     import os, sys
     os.kill(os.getpid(), 9)
+
+
+def _stop_player() -> None:
+    from core.media_player import stop
+    stop()
+
+
+def _toggle_keyboard_mode(btn, frame) -> None:
+    global _kb_active
+    _kb_active = not _kb_active
+    if _kb_active:
+        frame.pack(fill=tk.X, padx=8, pady=(0, 4))
+        btn.config(fg=ACCENT)
+        if _kb_entry:
+            _kb_entry.focus_set()
+    else:
+        frame.pack_forget()
+        btn.config(fg=FG_DIM)
+
+
+def _on_kb_send(entry) -> None:
+    text = entry.get().strip()
+    if not text:
+        return
+    entry.delete(0, tk.END)
+    add_user(text)
+    if _kb_callback:
+        threading.Thread(target=_kb_callback, args=(text,), daemon=True).start()
 
 
 def _stats_loop():
@@ -259,3 +356,30 @@ def _append(text: str, tag: str) -> None:
 
 def is_available() -> bool:
     return _available
+
+
+def set_kb_callback(fn) -> None:
+    global _kb_callback
+    _kb_callback = fn
+
+
+def set_player_status(url_or_none: str | None) -> None:
+    if url_or_none:
+        # Mostrar la barra y un título corto
+        from urllib.parse import urlparse, parse_qs
+        title = url_or_none
+        try:
+            qs = parse_qs(urlparse(url_or_none).query)
+            v = qs.get("v", [None])[0]
+            if v:
+                title = f"youtu.be/{v}"
+        except Exception:
+            pass
+        _safe(lambda t=title: (
+            _player_bar.pack(fill=tk.X) if _player_bar else None,
+            _player_label.config(text=f"♫  {t}") if _player_label else None,
+        ))
+    else:
+        _safe(lambda: (
+            _player_bar.pack_forget() if _player_bar else None,
+        ))

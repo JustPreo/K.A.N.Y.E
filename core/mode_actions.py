@@ -277,9 +277,11 @@ def _add_autoplay_param(url: str) -> str:
 
 
 def _open_media_url(url: str) -> None:
-    """Abre una URL multimedia en el browser. Agrega autoplay=1 para YouTube."""
+    """Reproduce con mpv si es YouTube, si no abre en el browser."""
     if _YOUTUBE_PATTERN.search(url):
-        url = _add_autoplay_param(url)
+        from core.media_player import play
+        if play(url):
+            return
     webbrowser.open(url)
 
 

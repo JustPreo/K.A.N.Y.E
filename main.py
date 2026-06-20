@@ -517,6 +517,11 @@ def _cleanup_pid() -> None:
         PID_FILE.unlink(missing_ok=True)
     except Exception:
         pass
+    try:
+        from core.media_player import stop
+        stop()
+    except Exception:
+        pass
 
 
 def main() -> None:
@@ -552,6 +557,17 @@ def main() -> None:
 
         print("K.A.N.Y.E.: Calibrando micrófono...")
         set_calibrated_threshold(calibrate(duration=1.2))
+
+    # Conectar media_player con la GUI
+    import core.media_player as _mp
+    _mp.set_on_change(gui.set_player_status)
+
+    # Modo teclado: comando escrito en el GUI se procesa igual que voz
+    def _on_kb_command(text: str) -> None:
+        text = normalize_text(text)
+        if text:
+            handle_command(text)
+    gui.set_kb_callback(_on_kb_command)
 
     # Inyectar set_mode en mode_actions para que la GUI refleje el modo activo
     import core.mode_actions as _ma
