@@ -278,29 +278,24 @@ def _add_autoplay_param(url: str) -> str:
     return url + sep + "autoplay=1"
 
 
-def _simulate_play_after_delay(delay: float = 4.0) -> None:
-    """Espera a que cargue el browser y simula Space para iniciar reproducción."""
+def _playerctl_play_after_delay(delay: float = 4.0) -> None:
+    """Espera a que el browser registre el player MPRIS y lanza playerctl play."""
     import threading
+    import time
 
-    def _press_space():
-        import time
+    def _play():
         time.sleep(delay)
-        # Wayland: ydotool
-        if shutil.which("ydotool"):
-            subprocess.run(["ydotool", "key", "57"], capture_output=True)
-            return
-        # X11 fallback
-        if shutil.which("xdotool"):
-            subprocess.run(["xdotool", "key", "space"], capture_output=True)
+        subprocess.run(["playerctl", "play"], capture_output=True)
 
-    threading.Thread(target=_press_space, daemon=True).start()
+    if shutil.which("playerctl"):
+        threading.Thread(target=_play, daemon=True).start()
 
 
 def _open_media_url(url: str) -> None:
     """Abre una URL multimedia en el browser con autoplay y simula play."""
     if _YOUTUBE_PATTERN.search(url):
         url = _add_autoplay_param(url)
-        _simulate_play_after_delay(delay=4.0)
+        _playerctl_play_after_delay(delay=4.0)
     webbrowser.open(url)
 
 
