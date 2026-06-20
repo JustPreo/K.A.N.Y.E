@@ -1,7 +1,5 @@
 import json
 import re
-import shutil
-import subprocess
 import webbrowser
 from pathlib import Path
 
@@ -278,22 +276,10 @@ def _add_autoplay_param(url: str) -> str:
     return url + sep + "autoplay=1"
 
 
-def _playerctl_play_after_delay(delay: float = 4.0) -> None:
-    """Lanza playerctl play en un proceso desacoplado después de 'delay' segundos."""
-    if shutil.which("playerctl"):
-        subprocess.Popen(
-            ["bash", "-c", f"sleep {int(delay)} && playerctl play"],
-            start_new_session=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-
 def _open_media_url(url: str) -> None:
-    """Abre una URL multimedia en el browser con autoplay y simula play."""
+    """Abre una URL multimedia en el browser. Agrega autoplay=1 para YouTube."""
     if _YOUTUBE_PATTERN.search(url):
         url = _add_autoplay_param(url)
-        _playerctl_play_after_delay(delay=4.0)
     webbrowser.open(url)
 
 
