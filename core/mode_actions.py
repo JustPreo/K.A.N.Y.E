@@ -344,14 +344,22 @@ def activate_mode(mode_name: str) -> bool:
     # ── Modo focus ────────────────────────────────────────────────────────────
     if focus_cfg.get("enabled"):
         from core import focus_mode
+        import threading as _threading
         sites    = focus_cfg.get("blocked_sites", [])
         duration = focus_cfg.get("duration_minutes", 25)
         if sites:
-            focus_mode.activate(sites, duration)
-            print(
-                f"K.A.N.Y.E.: Focus ON — {duration} min. "
-                f"Sitios bloqueados: {', '.join(sites)}"
-            )
+            def _activate_focus():
+                ok = focus_mode.activate(sites, duration)
+                if ok:
+                    print(
+                        f"K.A.N.Y.E.: Focus ON — {duration} min. "
+                        f"Sitios bloqueados: {', '.join(sites)}"
+                    )
+                else:
+                    print("K.A.N.Y.E.: No se pudo activar el modo focus (sin permisos para editar hosts).")
+                    if focus_mode._notify_fn:
+                        focus_mode._notify_fn("K.A.N.Y.E. — Focus", "No pude bloquear los sitios. Necesito permisos de administrador.")
+            _threading.Thread(target=_activate_focus, daemon=True).start()
 
     # Actualiza el modo en ambient
     try:
