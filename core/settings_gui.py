@@ -245,7 +245,8 @@ def _build_modes_tab(nb: ttk.Notebook):
 
     edit_frame.columnconfigure(1, weight=1)
 
-    modes_data = [_load(MODES_FILE)]  # mutable container
+    modes_data    = [_load(MODES_FILE)]
+    selected_mode = [None]  # nombre del modo actualmente cargado en el panel
 
     def refresh_list():
         lb.delete(0, tk.END)
@@ -257,6 +258,7 @@ def _build_modes_tab(nb: ttk.Notebook):
         if not sel:
             return
         name = lb.get(sel[0]).strip()
+        selected_mode[0] = name
         m = modes_data[0].get(name, {})
 
         def set_text(widget, val):
@@ -281,11 +283,10 @@ def _build_modes_tab(nb: ttk.Notebook):
     lb.bind("<<ListboxSelect>>", on_select)
 
     def save_mode():
-        sel = lb.curselection()
-        if not sel:
+        name = selected_mode[0]
+        if not name:
             messagebox.showwarning("Sin selección", "Seleccioná un modo primero.")
             return
-        name = lb.get(sel[0]).strip()
 
         def get_list(key):
             raw = fields[key][1].get("1.0", tk.END).strip()
@@ -324,17 +325,18 @@ def _build_modes_tab(nb: ttk.Notebook):
         }
         _save(MODES_FILE, modes_data[0])
         refresh_list()
+        selected_mode[0] = name
         lb.select_set(tk.END)
         on_select()
 
     def delete_mode():
-        sel = lb.curselection()
-        if not sel:
+        name = selected_mode[0]
+        if not name:
             return
-        name = lb.get(sel[0]).strip()
         if messagebox.askyesno("Eliminar", f"¿Eliminar el modo '{name}'?"):
             del modes_data[0][name]
             _save(MODES_FILE, modes_data[0])
+            selected_mode[0] = None
             refresh_list()
 
     btn_row = tk.Frame(edit_frame, bg=BG)
