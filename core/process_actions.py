@@ -137,11 +137,15 @@ def _close_all_hyprland() -> bool:
     except Exception:
         return False
 
+    current_pid = os.getpid()
     closed_any = False
     for client in clients:
         address = client.get("address", "")
         cls = client.get("class") or ""
         title = client.get("title") or ""
+        pid = client.get("pid", -1)
+        if pid == current_pid:
+            continue
         if _is_protected_window(cls, title):
             continue
         _cmd("hyprctl", "dispatch", "closewindow", f"address:{address}")
