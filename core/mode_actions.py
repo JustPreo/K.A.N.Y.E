@@ -271,9 +271,8 @@ _MEDIA_URL_PATTERNS = re.compile(
 
 _MEDIA_PLAYERS = [
     # (ejecutable, args_antes_de_url)
-    ("mpv",  ["--no-video"]),
-    ("cvlc", ["--no-video", "--play-and-exit"]),
-    ("vlc",  ["--no-video", "--play-and-exit"]),
+    ("mpv", []),
+    ("vlc", []),
 ]
 
 
@@ -358,4 +357,10 @@ def activate_mode(mode_name: str) -> bool:
         pass
 
     print(f"K.A.N.Y.E.: {message}")
+    try:
+        from core.text_to_speech import speak
+        speak(message)
+    except Exception as e:
+        print(f"K.A.N.Y.E.: No pude hablar: {e}")
+
     return True
