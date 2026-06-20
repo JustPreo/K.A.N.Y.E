@@ -269,11 +269,12 @@ def activate_mode(mode_name: str) -> bool:
 
     mode = modes[mode_name]
 
-    apps = mode.get("apps", [])
-    urls = mode.get("urls", [])
-    folders = mode.get("folders", [])
-    message = mode.get("message", f"Modo {mode_name} activado.")
+    apps        = mode.get("apps", [])
+    urls        = mode.get("urls", [])
+    folders     = mode.get("folders", [])
+    message     = mode.get("message", f"Modo {mode_name} activado.")
     close_before = mode.get("close_before", False)
+    focus_cfg   = mode.get("focus", {})
 
     if close_before:
         print("K.A.N.Y.E.: Cerrando aplicaciones antes de activar el modo...")
@@ -283,7 +284,6 @@ def activate_mode(mode_name: str) -> bool:
 
     for app_query in apps:
         app = find_best_app_match(app_query)
-
         if app:
             print(f"K.A.N.Y.E.: Abriendo {app['name']}")
             open_application(app)
@@ -298,5 +298,24 @@ def activate_mode(mode_name: str) -> bool:
         print(f"K.A.N.Y.E.: Abriendo carpeta: {folder}")
         open_folder(folder)
 
-    #print(f"K.A.N.Y.E.: {message}")
+    # ── Modo focus ────────────────────────────────────────────────────────────
+    if focus_cfg.get("enabled"):
+        from core import focus_mode
+        sites    = focus_cfg.get("blocked_sites", [])
+        duration = focus_cfg.get("duration_minutes", 25)
+        if sites:
+            focus_mode.activate(sites, duration)
+            print(
+                f"K.A.N.Y.E.: Focus ON — {duration} min. "
+                f"Sitios bloqueados: {', '.join(sites)}"
+            )
+
+    # Actualiza el modo en ambient
+    try:
+        from core import ambient
+        ambient.set_mode(mode_name)
+    except Exception:
+        pass
+
+    print(f"K.A.N.Y.E.: {message}")
     return True

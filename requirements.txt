@@ -30,3 +30,9 @@ yt-dlp
 # Bandeja del sistema + ícono
 pystray
 Pillow
+
+# Notificaciones de escritorio (presencia ambiental + monitor)
+plyer
+
+# Clipboard (escritura de texto con acentos/unicode)
+pyperclip

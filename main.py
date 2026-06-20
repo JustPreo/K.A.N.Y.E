@@ -1,4 +1,5 @@
 import sys
+import threading
 
 from core.intent_router import detect_intent
 from core.app_resolver import find_best_app_match, scan_apps
@@ -23,11 +24,15 @@ from core.media_actions import (
 )
 from core.process_actions import close_application
 from core.site_actions import open_site, add_site
+from core.keyboard_actions import type_text, execute_shortcut
 from core.responses import response
 from core.config_loader import get_config
 from core.startup_checks import run_checks
 from core.mic_calibrator import calibrate
 import core.tray_icon as tray
+import core.ambient as ambient
+import core.system_monitor as monitor
+import core.focus_mode as focus
 
 
 LAST_INTERACTION = {"type": None}
@@ -38,10 +43,32 @@ def set_last_interaction(t: str) -> None:
     LAST_INTERACTION["type"] = t
 
 
-def say(message: str) -> None:
+# ─── Notificación compartida (inyectada en monitor y focus) ───────────────────
+
+def _notify(title: str, body: str) -> None:
+    try:
+        from plyer import notification
+        notification.notify(title=title, message=body, app_name="K.A.N.Y.E.", timeout=10)
+        return
+    except Exception:
+        pass
+    import subprocess
+    if sys.platform.startswith("linux"):
+        try:
+            subprocess.run(
+                ["notify-send", "-u", "normal", "-t", "10000", "-a", "K.A.N.Y.E.", title, body],
+                capture_output=True,
+            )
+            return
+        except Exception:
+            pass
+    print(f"\n  ╔══ {title} ══╗\n  ║ {body}\n  ╚{'═' * (len(title) + 6)}╝\n")
+
+
+def say(message: str, cache: bool = True) -> None:
     print(f"K.A.N.Y.E.: {message}")
     tray.set_state("speaking")
-    speak(message, use_cache=True)
+    speak(message, use_cache=cache)
     tray.set_state("idle")
 
 
@@ -53,20 +80,21 @@ def is_clear_system_command(command: str) -> bool:
         "guarda sitio", "guardar sitio", "agrega sitio", "agregar sitio",
         "guarda página", "guardar página", "agrega página", "agregar página",
         "cierra", "cerrar", "cerrá", "termina", "terminar", "mata",
-        "cerrar programa", "cierra programa",
         "pon", "pone", "reproduce", "toca", "pon música", "poner música",
         "busca música", "busca cancion", "busca canción",
         "abre", "abrí", "abrir", "ejecuta", "lanza",
         "busca", "buscar", "googlea", "investiga",
         "activa modo", "activar modo", "modo",
-        "crea modo", "crear modo", "nuevo modo", "agrega modo", "agregar modo",
-        "edita modo", "editar modo", "modifica modo", "modificar modo",
-        "cambia modo", "cambiar modo",
-        "elimina modo", "eliminar modo", "borra modo", "borrar modo",
-        "quita modo", "quitar modo",
-        "modos", "lista modos", "ver modos", "mostrar modos",
-        "borra historial", "borrar historial", "limpia historial",
-        "salir", "cerrar", "exit", "quit",
+        "crea modo", "crear modo", "nuevo modo",
+        "edita modo", "editar modo", "modifica modo",
+        "elimina modo", "eliminar modo", "borra modo",
+        "modos", "lista modos", "ver modos",
+        "borra historial", "borrar historial",
+        "desbloquea", "desbloquear", "desactiva focus",
+        "escribe", "escribí", "escribir", "dictá", "tipea", "teclea",
+        "presiona", "selecciona todo", "copia", "pega", "corta",
+        "deshace", "rehace", "guarda el archivo",
+        "salir", "exit", "quit",
     ]
     return any(text.startswith(s) for s in starters)
 
@@ -76,44 +104,39 @@ def handle_chat(query: str) -> bool:
     tray.set_state("processing")
     answer = ask_llm(query)
     print(f"K.A.N.Y.E.: {answer}\n")
-    tray.set_state("speaking")
-    speak(answer, use_cache=False)
-    tray.set_state("idle")
+    say(answer, cache=False)
     set_last_interaction("chat")
     return True
 
 
 def handle_media_control(action: str) -> bool:
     handlers = {
-        "play_pause": (media_play_pause, "Listo.", "No pude pausar o reanudar."),
+        "play_pause": (media_play_pause, "Listo.",           "No pude pausar o reanudar."),
         "next":       (media_next,       "Siguiente canción.", "No pude pasar la canción."),
         "previous":   (media_previous,   "Canción anterior.", "No pude regresar la canción."),
         "volume_up":  (volume_up,        "Subiendo volumen.", "No pude subir el volumen."),
         "volume_down":(volume_down,      "Bajando volumen.", "No pude bajar el volumen."),
-        "mute":       (volume_mute,      "Silencio.", "No pude silenciar."),
+        "mute":       (volume_mute,      "Silencio.",        "No pude silenciar."),
     }
     if action not in handlers:
         say("No entendí el control multimedia.")
-        set_last_interaction("command")
-        return True
-
-    fn, ok_msg, fail_msg = handlers[action]
-    say(ok_msg if fn() else fail_msg)
+    else:
+        fn, ok_msg, fail_msg = handlers[action]
+        say(ok_msg if fn() else fail_msg)
     print()
     set_last_interaction("command")
     return True
 
 
-def _listen_for_url() -> str:
-    """Escucha una segunda respuesta de voz o texto para la URL."""
+def _listen_follow_up(prompt: str) -> str:
+    """Escucha una respuesta de seguimiento (voz o texto)."""
+    say(prompt)
     if TEXT_MODE:
-        return input("  URL: ").strip()
-
-    say("¿Cuál es la URL?")
+        return input("  > ").strip()
     tray.set_state("listening")
-    url_raw = listen_once(timeout=6, phrase_time_limit=8)
+    result = listen_once(timeout=6, phrase_time_limit=8)
     tray.set_state("processing")
-    return url_raw
+    return result
 
 
 def extract_workspace(query: str) -> tuple[str, str]:
@@ -135,8 +158,7 @@ def handle_file_action(query: str) -> bool:
 
     for prefix in ["lee archivo", "leer archivo"]:
         if text.startswith(prefix):
-            file_path = query[len(prefix):].strip()
-            content = read_file(file_path, workspace)
+            content = read_file(query[len(prefix):].strip(), workspace)
             if content is None:
                 say("No pude leer el archivo.")
                 return True
@@ -150,8 +172,7 @@ def handle_file_action(query: str) -> bool:
 
     for prefix in ["haz backup de archivo", "hacer backup de archivo"]:
         if text.startswith(prefix):
-            file_path = query[len(prefix):].strip()
-            done = backup_file(file_path, workspace)
+            done = backup_file(query[len(prefix):].strip(), workspace)
             say("Backup creado." if done else "No pude crear el backup.")
             set_last_interaction("command")
             return True
@@ -172,7 +193,7 @@ def handle_file_action(query: str) -> bool:
         prefix = "reemplazar" if text.startswith("reemplazar") else "reemplaza"
         rest = query[len(prefix):].strip()
         if " por " not in rest or " en archivo " not in rest:
-            say("Usa el formato: reemplaza texto viejo por texto nuevo en archivo main.py.")
+            say("Usa: reemplaza texto viejo por texto nuevo en archivo main.py.")
             return True
         old_and_new, file_path = rest.rsplit(" en archivo ", 1)
         old_text, new_text = old_and_new.split(" por ", 1)
@@ -191,9 +212,12 @@ def handle_file_action(query: str) -> bool:
 def handle_command(command: str) -> bool:
     if LAST_INTERACTION["type"] == "chat" and not is_clear_system_command(command):
         intent, query = "chat_direct", command
+        extra: dict = {}
     else:
-        result = detect_intent(command)
-        intent, query = result["intent"], result["query"]
+        result  = detect_intent(command)
+        intent  = result["intent"]
+        query   = result["query"]
+        extra   = {k: v for k, v in result.items() if k not in ("intent", "query")}
 
     tray.set_state("processing")
 
@@ -202,10 +226,53 @@ def handle_command(command: str) -> bool:
         say("Cerrando.")
         return False
 
-    # ── Borrar historial ──────────────────────────────────────────────────────
+    # ── Historial ─────────────────────────────────────────────────────────────
     elif intent == "clear_history":
         clear_history()
         say("Historial borrado.")
+        print()
+        set_last_interaction("command")
+
+    # ── Teclado — shortcut ────────────────────────────────────────────────────
+    elif intent == "keyboard_shortcut":
+        done = execute_shortcut(query)
+        say("Listo." if done else "No pude ejecutar ese atajo.")
+        print()
+        set_last_interaction("command")
+
+    # ── Teclado — escribir texto ──────────────────────────────────────────────
+    elif intent == "keyboard_type":
+        if not query:
+            say("¿Qué quieres que escriba?")
+            set_last_interaction("command")
+            return True
+        uppercase = extra.get("uppercase", False)
+        done = type_text(query, uppercase=uppercase)
+        say("Texto escrito." if done else "No pude escribir el texto.")
+        print()
+        set_last_interaction("command")
+
+    # ── Focus OFF ─────────────────────────────────────────────────────────────
+    elif intent == "focus_off":
+        if not focus.is_active():
+            say("No hay ningún modo focus activo.")
+            set_last_interaction("command")
+            return True
+
+        # K.A.N.Y.E. desafía al usuario
+        reason = _listen_follow_up("¿Por qué necesitás salir del focus? Decime.")
+        if reason:
+            print(f"K.A.N.Y.E.: Razón registrada: {reason}")
+
+        focus.deactivate(forced=True)
+        say("Focus desactivado. Espero que valiera la pena.")
+        print()
+        set_last_interaction("command")
+
+    # ── Focus STATUS ──────────────────────────────────────────────────────────
+    elif intent == "focus_status":
+        info = focus.time_info()
+        say(info)
         print()
         set_last_interaction("command")
 
@@ -231,14 +298,12 @@ def handle_command(command: str) -> bool:
             say("Decime qué programa querés cerrar.")
             set_last_interaction("command")
             return True
-        if close_application(query):
-            say(response("app_closed", name=query))
-        else:
-            say("No encontré ese programa abierto o no pude cerrarlo.")
+        say(response("app_closed", name=query) if close_application(query)
+            else "No encontré ese programa abierto o no pude cerrarlo.")
         print()
         set_last_interaction("command")
 
-    # ── Buscar en Google ──────────────────────────────────────────────────────
+    # ── Buscar ────────────────────────────────────────────────────────────────
     elif intent == "web_search":
         print(f"K.A.N.Y.E.: Buscando: {query}")
         say(response("search_opened") if search_google(query) else "No pude hacer la búsqueda.")
@@ -257,7 +322,8 @@ def handle_command(command: str) -> bool:
             say("Decime qué modo querés activar.")
             set_last_interaction("command")
             return True
-        say(response("mode_activated", name=query) if activate_mode(query) else "No pude activar ese modo.")
+        say(response("mode_activated", name=query) if activate_mode(query)
+            else "No pude activar ese modo.")
         print()
         set_last_interaction("command")
 
@@ -266,7 +332,7 @@ def handle_command(command: str) -> bool:
             say("Decime el nombre del modo.")
             set_last_interaction("command")
             return True
-        say("Modo creado correctamente." if create_mode_interactive(query) else "No se creó el modo.")
+        say("Modo creado." if create_mode_interactive(query) else "No se creó el modo.")
         print()
         set_last_interaction("command")
 
@@ -314,45 +380,37 @@ def handle_command(command: str) -> bool:
     elif intent == "file_action":
         return handle_file_action(query)
 
-    # ── Chat directo (venía de conversación) ──────────────────────────────────
+    # ── Chat directo ──────────────────────────────────────────────────────────
     elif intent == "chat_direct":
         return handle_chat(query)
 
-    # ── Abrir sitio guardado ──────────────────────────────────────────────────
+    # ── Sitios ────────────────────────────────────────────────────────────────
     elif intent == "open_site":
         if not query:
             say("Decime qué página querés abrir.")
             set_last_interaction("command")
             return True
-        if open_site(query):
-            say(response("site_opened", name=query))
-        else:
-            say("No encontré esa página guardada.")
+        say(response("site_opened", name=query) if open_site(query)
+            else "No encontré esa página guardada.")
         print()
         set_last_interaction("command")
 
-    # ── Guardar sitio nuevo por voz ───────────────────────────────────────────
     elif intent == "add_site":
         if not query:
-            say("Decime el nombre del sitio que querés guardar.")
+            say("Decime el nombre del sitio.")
             set_last_interaction("command")
             return True
-
-        url_raw = _listen_for_url()
-
+        url_raw = _listen_follow_up(f"¿Cuál es la URL de {query}?")
         if not url_raw:
             say("No escuché la URL.")
             set_last_interaction("command")
             return True
-
-        if add_site(query, url_raw):
-            say(f"Sitio '{query}' guardado.")
-        else:
-            say("No pude guardar el sitio.")
+        say(f"Sitio '{query}' guardado." if add_site(query, url_raw)
+            else "No pude guardar el sitio.")
         print()
         set_last_interaction("command")
 
-    # ── Chat / intención ambigua (con LLM opcional) ───────────────────────────
+    # ── Chat / ambiguo ────────────────────────────────────────────────────────
     elif intent == "chat":
         config = get_config()
         if config.get("use_llm_classifier", True):
@@ -360,7 +418,6 @@ def handle_command(command: str) -> bool:
             llm = classify_with_llm(query)
             llm_intent, llm_query = llm["intent"], llm["query"]
             print(f"K.A.N.Y.E.: LLM → {llm_intent} | {llm_query}")
-
             dispatch = {
                 "activate_mode": f"activa modo {llm_query}",
                 "open_app":      f"abre {llm_query}",
@@ -372,9 +429,7 @@ def handle_command(command: str) -> bool:
             if llm_intent in dispatch:
                 set_last_interaction("command")
                 return handle_command(dispatch[llm_intent])
-
             return handle_chat(llm_query)
-
         return handle_chat(query)
 
     else:
@@ -386,10 +441,9 @@ def handle_command(command: str) -> bool:
     return True
 
 
-# ─── Bucles de ejecución ──────────────────────────────────────────────────────
+# ─── Bucles ───────────────────────────────────────────────────────────────────
 
-def _listen_command() -> str:
-    """Obtiene el próximo comando (voz o texto según modo)."""
+def _get_command() -> str:
     if TEXT_MODE:
         try:
             raw = input("> ").strip()
@@ -398,80 +452,81 @@ def _listen_command() -> str:
         return normalize_text(raw)
 
     tray.set_state("listening")
-    command = listen_once(timeout=6, phrase_time_limit=10)
+    cmd = listen_once(timeout=6, phrase_time_limit=10)
     tray.set_state("processing")
 
-    if not command:
+    if not cmd:
         say("No escuché nada.")
         tray.set_state("idle")
         return ""
 
-    command = normalize_text(command)
-    print(f"Comando detectado: {command}")
-    return command
+    cmd = normalize_text(cmd)
+    print(f"Comando detectado: {cmd}")
+    return cmd
 
 
-def run_voice_mode(config: dict) -> None:
-    hotkey = config.get("hotkey", "ctrl+f9")
+def run_voice_mode(hotkey: str) -> None:
     running = True
-
     while running:
         tray.set_state("idle")
         print(f"Estado: esperando [{hotkey.upper()}]...")
         wait_for_hotkey(hotkey)
-
         say("Te escucho.")
-        command = _listen_command()
-
-        if not command:
-            continue
-
-        running = handle_command(command)
+        cmd = _get_command()
+        if cmd:
+            running = handle_command(cmd)
 
 
 def run_text_mode() -> None:
     print("K.A.N.Y.E. modo texto. Escribí tu comando (o 'salir' para cerrar).\n")
     running = True
     while running:
-        command = _listen_command()
-        if command:
-            running = handle_command(command)
+        cmd = _get_command()
+        if cmd:
+            running = handle_command(cmd)
 
+
+# ─── Inicio ───────────────────────────────────────────────────────────────────
 
 def main() -> None:
     config = get_config()
+    hotkey = config.get("hotkey", "ctrl+f9")
 
     print("=" * 45)
     print("  K.A.N.Y.E.")
-    if TEXT_MODE:
-        print("  Modo: TEXTO (--text)")
-    else:
-        hotkey = config.get("hotkey", "ctrl+f9")
-        print(f"  Modo: VOZ  |  Hotkey: [{hotkey.upper()}]")
+    print(f"  Modo: {'TEXTO (--text)' if TEXT_MODE else f'VOZ  |  [{hotkey.upper()}]'}")
     print("=" * 45 + "\n")
 
-    # Verificaciones de sistema
     run_checks()
 
-    # Calentar cache de apps en background
-    import threading
+    # Cache de apps en background
     threading.Thread(target=scan_apps, daemon=True).start()
 
+    # Inyectar callbacks en módulos de fondo
+    monitor.set_speak(speak)
+    monitor.set_notify(_notify)
+    focus.set_callbacks(
+        on_expired=None,
+        speak=speak,
+        notify=_notify,
+    )
+
     if not TEXT_MODE:
-        # Bandeja del sistema
         tray.start(on_quit=lambda: sys.exit(0))
 
-        # Calibrar micrófono
-        print("K.A.N.Y.E.: Calibrando micrófono (hablar en silencio)...")
-        threshold = calibrate(duration=1.2)
-        set_calibrated_threshold(threshold)
+        print("K.A.N.Y.E.: Calibrando micrófono...")
+        set_calibrated_threshold(calibrate(duration=1.2))
+
+    # Iniciar presencia ambiental y monitor de sistema
+    ambient.start()
+    monitor.start()
 
     speak("KANYE iniciado.", use_cache=True)
 
     if TEXT_MODE:
         run_text_mode()
     else:
-        run_voice_mode(config)
+        run_voice_mode(hotkey)
 
 
 if __name__ == "__main__":

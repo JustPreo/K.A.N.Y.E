@@ -17,5 +17,25 @@
         "urls": [],
         "folders": [],
         "message": "Modo gaming"
+    },
+    "estudio": {
+        "close_before": false,
+        "apps": [],
+        "urls": [],
+        "folders": [],
+        "message": "Modo estudio activado. Sin distracciones.",
+        "focus": {
+            "enabled": true,
+            "duration_minutes": 50,
+            "blocked_sites": [
+                "youtube.com",
+                "twitter.com",
+                "x.com",
+                "instagram.com",
+                "reddit.com",
+                "tiktok.com",
+                "facebook.com"
+            ]
+        }
     }
 }
