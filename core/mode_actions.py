@@ -1,4 +1,7 @@
 import json
+import re
+import shutil
+import subprocess
 import webbrowser
 from pathlib import Path
 
@@ -260,6 +263,41 @@ def edit_mode_interactive(mode_name: str) -> bool:
 
     return False
 
+
+_MEDIA_URL_PATTERNS = re.compile(
+    r"(youtube\.com|youtu\.be|music\.youtube\.com|spotify\.com|soundcloud\.com)",
+    re.IGNORECASE,
+)
+
+_MEDIA_PLAYERS = [
+    # (ejecutable, args_antes_de_url)
+    ("mpv",  ["--no-video"]),
+    ("cvlc", ["--no-video", "--play-and-exit"]),
+    ("vlc",  ["--no-video", "--play-and-exit"]),
+]
+
+
+def _play_media_url(url: str) -> bool:
+    """Reproduce una URL multimedia en background. Retorna True si pudo hacerlo."""
+    if not _MEDIA_URL_PATTERNS.search(url):
+        return False
+
+    for player, args in _MEDIA_PLAYERS:
+        if shutil.which(player):
+            try:
+                subprocess.Popen(
+                    [player, *args, url],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                print(f"K.A.N.Y.E.: Reproduciendo {url} con {player}")
+                return True
+            except Exception as e:
+                print(f"K.A.N.Y.E.: No pude usar {player}: {e}")
+
+    return False
+
+
 def activate_mode(mode_name: str) -> bool:
     mode_name = mode_name.lower().strip()
     modes = load_modes()
@@ -292,8 +330,9 @@ def activate_mode(mode_name: str) -> bool:
             print(f"K.A.N.Y.E.: No encontré la app: {app_query}")
 
     for url in urls:
-        print(f"K.A.N.Y.E.: Abriendo URL: {url}")
-        webbrowser.open(url)
+        if not _play_media_url(url):
+            print(f"K.A.N.Y.E.: Abriendo URL: {url}")
+            webbrowser.open(url)
 
     for folder in folders:
         print(f"K.A.N.Y.E.: Abriendo carpeta: {folder}")
