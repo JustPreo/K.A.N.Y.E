@@ -12,11 +12,11 @@ STATE_COLORS = {
 }
 
 STATE_LABELS = {
-    "idle":       "K.A.N.Y.E. — Esperando",
-    "listening":  "K.A.N.Y.E. — Escuchando...",
-    "processing": "K.A.N.Y.E. — Procesando...",
-    "speaking":   "K.A.N.Y.E. — Hablando...",
-    "error":      "K.A.N.Y.E. — Error",
+    "idle":       "K.A.N.Y.E. - Esperando",
+    "listening":  "K.A.N.Y.E. - Escuchando...",
+    "processing": "K.A.N.Y.E. - Procesando...",
+    "speaking":   "K.A.N.Y.E. - Hablando...",
+    "error":      "K.A.N.Y.E. - Error",
 }
 
 
@@ -53,7 +53,7 @@ def start(on_quit=None) -> None:
         from PIL import Image
     except ImportError:
         _available = False
-        print("K.A.N.Y.E.: pystray/Pillow no instalado — bandeja del sistema desactivada.")
+        print("K.A.N.Y.E.: pystray/Pillow no instalado - bandeja del sistema desactivada.")
         return
 
     def _quit_action(icon, item):
@@ -70,7 +70,7 @@ def start(on_quit=None) -> None:
     _icon = pystray.Icon(
         name="kanye",
         icon=_make_image("idle"),
-        title="K.A.N.Y.E. — Esperando",
+        title="K.A.N.Y.E. - Esperando",
         menu=menu,
     )
 
