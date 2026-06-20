@@ -97,7 +97,7 @@ def close_application(query: str) -> bool:
 
 
 PROTECTED_WINDOW_CLASSES = {
-    "python", "kanye", "rofi", "wofi", "waybar", "eww",
+    "python", "python3", "tk", "kanye", "rofi", "wofi", "waybar", "eww",
     "hyprpaper", "swaybg", "swaylock", "swayidle",
     "ags", "anyrun", "avizo",
 }
