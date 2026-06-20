@@ -52,19 +52,35 @@ def _write_hosts(content: str) -> bool:
             )
             return False
     else:
+        # Intentar primero con sudo sin contraseña (si está configurado en sudoers)
         result = subprocess.run(
-            ["sudo", "tee", str(hosts)],
+            ["sudo", "-n", "tee", str(hosts)],
             input=content.encode("utf-8"),
             capture_output=True,
+            timeout=5,
         )
-        if result.returncode != 0:
-            print(
-                "K.A.N.Y.E.: No pude escribir en /etc/hosts.\n"
-                "  Para modo focus sin contraseña, agrega esta línea a /etc/sudoers:\n"
-                f"    {_get_username()} ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/hosts"
+        if result.returncode == 0:
+            return True
+
+        # Fallback: pkexec muestra diálogo gráfico de autenticación
+        try:
+            result = subprocess.run(
+                ["pkexec", "tee", str(hosts)],
+                input=content.encode("utf-8"),
+                capture_output=True,
+                timeout=60,
             )
-            return False
-        return True
+            if result.returncode == 0:
+                return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+        print(
+            "K.A.N.Y.E.: No pude escribir en /etc/hosts.\n"
+            "  Para modo focus sin contraseña, agrega esta línea a /etc/sudoers:\n"
+            f"    {_get_username()} ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/hosts"
+        )
+        return False
 
 
 def _get_username() -> str:
