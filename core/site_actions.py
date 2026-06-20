@@ -4,8 +4,9 @@ import webbrowser
 from pathlib import Path
 
 from rapidfuzz import process, fuzz
+from core.config_loader import PROJECT_ROOT
 
-SITES_FILE = Path("config") / "sites.json"
+SITES_FILE = PROJECT_ROOT / "config" / "sites.json"
 
 
 def load_sites() -> dict:

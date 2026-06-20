@@ -6,8 +6,9 @@ from core.app_resolver import find_best_app_match
 from core.system_actions import open_application
 from core.folder_actions import open_folder
 from core.process_actions import close_all_desktop_apps
+from core.config_loader import PROJECT_ROOT
 
-MODES_FILE = Path("config") / "modes.json"
+MODES_FILE = PROJECT_ROOT / "config" / "modes.json"
 
 
 def load_modes() -> dict:
