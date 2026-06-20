@@ -110,9 +110,13 @@ def step_system_deps_linux():
 def step_check_ollama():
     print("\n[3/6] Verificando Ollama...")
 
-    result = run(["ollama", "list"], capture_output=True, text=True)
+    try:
+        result = run(["ollama", "list"], capture_output=True, text=True)
+        ollama_ok = result.returncode == 0
+    except FileNotFoundError:
+        ollama_ok = False
 
-    if result.returncode != 0:
+    if not ollama_ok:
         print("  ✗ Ollama no está instalado.")
         if is_linux():
             print("  → Instalando Ollama...")
