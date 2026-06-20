@@ -3,8 +3,9 @@ from datetime import datetime
 import shutil
 import json
 
+from core.config_loader import PROJECT_ROOT
 
-CONFIG_WORKSPACES = Path("config") / "workspaces.json"
+CONFIG_WORKSPACES = PROJECT_ROOT / "config" / "workspaces.json"
 
 
 def load_workspaces() -> dict:
