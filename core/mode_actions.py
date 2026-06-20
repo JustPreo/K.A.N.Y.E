@@ -304,7 +304,19 @@ def activate_mode(mode_name: str) -> bool:
 
     if close_before:
         print("K.A.N.Y.E.: Cerrando aplicaciones antes de activar el modo...")
-        close_all_desktop_apps()
+        try:
+            from core import gui as _gui
+            _gui.suppress_close(True)
+        except Exception:
+            pass
+        try:
+            close_all_desktop_apps()
+        finally:
+            try:
+                from core import gui as _gui
+                _gui.suppress_close(False)
+            except Exception:
+                pass
 
     print(f"K.A.N.Y.E.: Activando modo {mode_name}...")
 
