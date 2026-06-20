@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
+VENV_DIR = PROJECT_ROOT / ".venv"
 
 
 def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -22,6 +23,30 @@ def is_windows() -> bool:
 
 def is_linux() -> bool:
     return sys.platform.startswith("linux")
+
+
+def venv_python() -> str:
+    if is_windows():
+        return str(VENV_DIR / "Scripts" / "python.exe")
+    return str(VENV_DIR / "bin" / "python3")
+
+
+def venv_pip() -> str:
+    if is_windows():
+        return str(VENV_DIR / "Scripts" / "pip.exe")
+    return str(VENV_DIR / "bin" / "pip")
+
+
+def step_create_venv():
+    print("\n[0/6] Configurando entorno virtual...")
+    if VENV_DIR.exists():
+        print("  ✓ Entorno virtual ya existe (.venv/)")
+        return
+    result = run([sys.executable, "-m", "venv", str(VENV_DIR)])
+    if result.returncode != 0:
+        print("  ✗ No pude crear el entorno virtual.")
+        sys.exit(1)
+    print("  ✓ Entorno virtual creado en .venv/")
 
 
 def detect_linux_distro() -> str:
@@ -41,7 +66,7 @@ def step_python_deps():
     print("\n[1/6] Instalando dependencias Python...")
     reqs = PROJECT_ROOT / "requirements.txt"
     result = run(
-        [sys.executable, "-m", "pip", "install", "-r", str(reqs)],
+        [venv_pip(), "install", "-r", str(reqs)],
         capture_output=False,
     )
     if result.returncode != 0:
@@ -158,15 +183,15 @@ def step_check_voice_model():
 
 def step_download_whisper():
     print("\n[5/6] Descargando modelo Whisper (base, ~74 MB)...")
-    try:
-        from faster_whisper import WhisperModel
-
-        _ = WhisperModel("base", device="cpu", compute_type="int8")
-        print("  ✓ Modelo Whisper 'base' listo.")
-    except ImportError:
-        print("  ✗ faster-whisper no está instalado (debería estar en requirements.txt).")
-    except Exception as e:
-        print(f"  ✗ Error descargando Whisper: {e}")
+    result = run(
+        [venv_python(), "-c",
+         "from faster_whisper import WhisperModel; "
+         "WhisperModel('base', device='cpu', compute_type='int8'); "
+         "print('  ✓ Modelo Whisper listo.')"],
+        capture_output=False,
+    )
+    if result.returncode != 0:
+        print("  ✗ Error descargando Whisper. Intentalo manualmente después.")
 
 
 def step_post_install_notes():
@@ -216,6 +241,7 @@ def main():
     print(f"  Python:  {sys.version.split()[0]}")
     print("=" * 55)
 
+    step_create_venv()
     step_python_deps()
 
     if is_linux():
@@ -230,7 +256,17 @@ def main():
 
     print("\n" + "=" * 55)
     print("  Instalación completa.")
-    print("  Iniciá el asistente con: python main.py")
+    if is_windows():
+        print("  Iniciá el asistente con:")
+        print("    .venv\\Scripts\\activate")
+        print("    python main.py")
+    else:
+        print("  Iniciá el asistente con:")
+        print("    source .venv/bin/activate")
+        print("    python3 main.py")
+        print()
+        print("  O sin activar el venv:")
+        print("    .venv/bin/python3 main.py")
     print("=" * 55 + "\n")
 
 
