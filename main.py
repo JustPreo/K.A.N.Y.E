@@ -329,8 +329,8 @@ def handle_command(command: str) -> bool:
             say("Decime qué modo querés activar.")
             set_last_interaction("command")
             return True
-        say(response("mode_activated", name=query) if activate_mode(query)
-            else "No pude activar ese modo.")
+        result = activate_mode(query)
+        say(result if result else "No pude activar ese modo.")
         print()
         set_last_interaction("command")
 
