@@ -33,6 +33,7 @@ import core.tray_icon as tray
 import core.ambient as ambient
 import core.system_monitor as monitor
 import core.focus_mode as focus
+import core.gui as gui
 
 
 LAST_INTERACTION = {"type": None}
@@ -68,8 +69,11 @@ def _notify(title: str, body: str) -> None:
 def say(message: str, cache: bool = True) -> None:
     print(f"K.A.N.Y.E.: {message}")
     tray.set_state("speaking")
+    gui.set_state("speaking")
+    gui.add_kanye(message)
     speak(message, use_cache=cache)
     tray.set_state("idle")
+    gui.set_state("idle")
 
 
 def is_clear_system_command(command: str) -> bool:
@@ -452,16 +456,20 @@ def _get_command() -> str:
         return normalize_text(raw)
 
     tray.set_state("listening")
+    gui.set_state("listening")
     cmd = listen_once(timeout=6, phrase_time_limit=10)
     tray.set_state("processing")
+    gui.set_state("processing")
 
     if not cmd:
         say("No escuché nada.")
         tray.set_state("idle")
+        gui.set_state("idle")
         return ""
 
     cmd = normalize_text(cmd)
     print(f"Comando detectado: {cmd}")
+    gui.add_user(cmd)
     return cmd
 
 
@@ -513,15 +521,36 @@ def main() -> None:
 
     if not TEXT_MODE:
         tray.start(on_quit=lambda: sys.exit(0))
+        gui.start()
 
         print("K.A.N.Y.E.: Calibrando micrófono...")
         set_calibrated_threshold(calibrate(duration=1.2))
+
+    # Inyectar set_mode en mode_actions para que la GUI refleje el modo activo
+    import core.mode_actions as _ma
+    _orig_activate = _ma.activate_mode
+    def _activate_with_gui(name):
+        result = _orig_activate(name)
+        if result:
+            gui.set_mode(name)
+            ambient.set_mode(name)
+        return result
+    _ma.activate_mode = _activate_with_gui
+
+    # Inyectar alertas del monitor en la GUI
+    _orig_notify = _notify
+    def _notify_with_gui(title, body):
+        _orig_notify(title, body)
+        gui.add_alert(f"{title}: {body}")
+    monitor.set_notify(_notify_with_gui)
+    focus.set_callbacks(on_expired=None, speak=speak, notify=_notify_with_gui)
 
     # Iniciar presencia ambiental y monitor de sistema
     ambient.start()
     monitor.start()
 
     speak("KANYE iniciado.", use_cache=True)
+    gui.add_system("Sistema listo. Presioná el botón o Ctrl+F9 para hablar.")
 
     if TEXT_MODE:
         run_text_mode()
