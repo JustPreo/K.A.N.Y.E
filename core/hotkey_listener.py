@@ -29,36 +29,35 @@ def _wait_trigger_file() -> None:
     TRIGGER_FILE.unlink(missing_ok=True)
 
 
+def _is_wayland() -> bool:
+    session = os.environ.get("XDG_SESSION_TYPE", "").lower()
+    display = os.environ.get("WAYLAND_DISPLAY", "")
+    return session == "wayland" or bool(display)
+
+
 def wait_for_hotkey(combo: str | None = None) -> None:
     if combo is None:
         config = get_config()
         combo = config.get("hotkey", "ctrl+f9")
+
+    # En Wayland pynput no puede capturar hotkeys globales — usar archivo señal
+    if _is_wayland():
+        _wait_trigger_file()
+        return
 
     triggered = threading.Event()
 
     def on_activate():
         triggered.set()
 
-    # Intentar pynput (funciona en X11, falla silenciosamente en Wayland)
-    pynput_ok = False
     try:
         from pynput import keyboard
         pynput_combo = _to_pynput_format(combo)
         listener = keyboard.GlobalHotKeys({pynput_combo: on_activate})
         listener.start()
-
-        # Dar 0.5s para que el listener se establezca; si falla, pynput_ok queda False
-        time.sleep(0.5)
-        if listener.is_alive():
-            pynput_ok = True
-
-    except Exception:
-        pynput_ok = False
-
-    if pynput_ok:
         triggered.wait()
         listener.stop()
-        return
 
-    # Fallback Wayland: esperar archivo señal /tmp/kanye_trigger
-    _wait_trigger_file()
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Hotkey ({error}). Presioná Enter para activar.")
+        input()
