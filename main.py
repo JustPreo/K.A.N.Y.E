@@ -266,13 +266,8 @@ def handle_command(command: str) -> bool:
             set_last_interaction("command")
             return True
 
-        # K.A.N.Y.E. desafía al usuario
-        reason = _listen_follow_up("¿Por qué necesitás salir del focus? Decime.")
-        if reason:
-            print(f"K.A.N.Y.E.: Razón registrada: {reason}")
-
         focus.deactivate(forced=True)
-        say("Focus desactivado. Espero que valiera la pena.")
+        say("Focus desactivado.")
         print()
         set_last_interaction("command")
 
