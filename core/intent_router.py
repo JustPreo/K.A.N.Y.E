@@ -1,4 +1,55 @@
+import re
+
 from core.keyboard_actions import SHORTCUT_COMMANDS
+
+# Verbos/frases que arrancan un comando reconocible. Se usan para decidir
+# si "y"/"luego"/"después" separan dos comandos distintos o son parte
+# de una sola frase (p. ej. "busca pan y vino" no se debe partir).
+_VERB_PREFIXES = [
+    "abre sitio", "abrir sitio", "abre página", "abre pagina", "abrir página", "abrir pagina",
+    "guarda sitio", "guardar sitio", "agrega sitio", "agregar sitio",
+    "activa modo", "activar modo", "crea modo", "crear modo",
+    "elimina modo", "eliminar modo", "borra modo", "borrar modo",
+    "edita modo", "editar modo", "modifica modo", "cambia modo",
+    "pon música", "poner música", "busca música", "busca cancion", "busca canción",
+    "escribe en mayúsculas", "escribí en mayúsculas", "escribe mayúsculas",
+    "lee archivo", "leer archivo", "busca en archivo", "buscar en archivo",
+    "haz backup de archivo", "hacer backup de archivo",
+    "abre", "abrí", "abrir", "abreme", "ábreme", "ejecuta", "lanza",
+    "cierra", "cerrar", "cerrá", "termina", "terminar", "mata",
+    "pon", "pone", "poné", "reproduce", "toca",
+    "busca", "buscar", "buscá", "googlea", "investiga",
+    "activa", "modo",
+    "escribe", "escribí", "escribir", "dictá", "dictar", "teclea", "tipea",
+    "desbloquea", "desbloquear",
+    "sube volumen", "baja volumen", "silencia", "silencio", "mute",
+    "siguiente", "anterior", "pausa", "reanuda",
+]
+
+_CONNECTOR_RE = re.compile(r"\s+(?:y luego|y despu[eé]s|luego|despu[eé]s|y)\s+")
+
+
+def split_commands(text: str) -> list[str]:
+    """Parte un comando de voz en varios cuando detecta conectores
+    ('y', 'luego', 'después') seguidos de un verbo de comando reconocido.
+    Ej: 'pon runaway y abre firefox' -> ['pon runaway', 'abre firefox']
+    """
+    text = text.strip()
+    if not text:
+        return []
+
+    lower = text.lower()
+    segments = []
+    last_end = 0
+
+    for match in _CONNECTOR_RE.finditer(lower):
+        after = lower[match.end():]
+        if any(after.startswith(verb) for verb in _VERB_PREFIXES):
+            segments.append(text[last_end:match.start()].strip())
+            last_end = match.end()
+
+    segments.append(text[last_end:].strip())
+    return [s for s in segments if s]
 
 
 def detect_intent(command: str) -> dict:

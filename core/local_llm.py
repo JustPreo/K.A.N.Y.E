@@ -3,6 +3,7 @@ import json
 import ollama
 
 from core.config_loader import get_config, PROJECT_ROOT
+from core import deepseek_client
 
 HISTORY_FILE = PROJECT_ROOT / "config" / "history.json"
 
@@ -69,21 +70,33 @@ def ask_llm(user_text: str) -> str:
     config = get_config()
     model_name = config.get("chat_model", "phi4-mini")
 
+    voice_context = (
+        f'Texto detectado por voz:\n"{user_text}"\n\n'
+        "Responde interpretando posibles errores de transcripción y manteniendo el contexto."
+    )
+
+    conversation_history.append({"role": "user", "content": voice_context})
+
     try:
-        voice_context = (
-            f'Texto detectado por voz:\n"{user_text}"\n\n'
-            "Responde interpretando posibles errores de transcripción y manteniendo el contexto."
-        )
+        if deepseek_client.is_enabled():
+            try:
+                answer = deepseek_client.chat(conversation_history, temperature=0.55, max_tokens=260)
+            except deepseek_client.DeepSeekError as error:
+                print(f"K.A.N.Y.E.: DeepSeek falló ({error}), usando modelo local.")
+                response = ollama.chat(
+                    model=model_name,
+                    messages=conversation_history,
+                    options={"temperature": 0.55, "num_predict": 260},
+                )
+                answer = response["message"]["content"].strip()
+        else:
+            response = ollama.chat(
+                model=model_name,
+                messages=conversation_history,
+                options={"temperature": 0.55, "num_predict": 260},
+            )
+            answer = response["message"]["content"].strip()
 
-        conversation_history.append({"role": "user", "content": voice_context})
-
-        response = ollama.chat(
-            model=model_name,
-            messages=conversation_history,
-            options={"temperature": 0.55, "num_predict": 260},
-        )
-
-        answer = response["message"]["content"].strip()
         conversation_history.append({"role": "assistant", "content": answer})
 
         # Limita historial en memoria: system + últimos 12 mensajes

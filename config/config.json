@@ -8,6 +8,8 @@
   "chat_model": "phi4-mini",
   "intent_model": "qwen2.5:1.5b",
   "use_llm_classifier": true,
+  "chat_backend": "ollama",
+  "deepseek_model": "deepseek-chat",
   "voice_model": "voices/es_ES-davefx-medium.onnx",
   "tts_cache_dir": "cache/tts",
   "language": "es"
