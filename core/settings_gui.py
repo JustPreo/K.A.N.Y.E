@@ -103,6 +103,7 @@ def _build_config_tab(nb: ttk.Notebook):
         ("deepseek_model",      "Modelo DeepSeek",       "entry",    "deepseek-chat"),
         ("deepseek_api_key",    "DeepSeek API key",      "entry",    ""),
         ("startup_tts",         "Anunciar inicio por voz", "check",  True),
+        ("auto_listen_on_hotkey", "Escuchar de una con Ctrl+F9", "check", True),
     ]
 
     widgets = {}

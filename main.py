@@ -496,12 +496,23 @@ def _get_command() -> str:
 
 def run_voice_mode(hotkey: str) -> None:
     running = True
+    visible = False
     while running:
         tray.set_state("idle")
-        gui.hide()
+        if not visible:
+            gui.hide()
         print(f"Estado: esperando [{hotkey.upper()}]...")
         wait_for_hotkey(hotkey)
         gui.show()
+
+        auto_listen = get_config().get("auto_listen_on_hotkey", True)
+        if not auto_listen and not visible:
+            # Primera pulsación con auto-listen desactivado: solo abre la
+            # ventana. Escucha recién con la próxima pulsación o el botón.
+            visible = True
+            continue
+
+        visible = False
         say("Te escucho.")
         cmd = _get_command()
         if cmd:

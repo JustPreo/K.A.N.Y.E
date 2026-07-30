@@ -30,6 +30,7 @@ def get_config() -> dict:
         "tts_cache_dir": "cache/tts",
         "language": "es",
         "startup_tts": True,
+        "auto_listen_on_hotkey": True,
     }
 
     if not config_path.exists():
