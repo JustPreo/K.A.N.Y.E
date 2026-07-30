@@ -36,3 +36,6 @@ plyer
 
 # Clipboard (escritura de texto con acentos/unicode)
 pyperclip
+
+# Backend DeepSeek opcional (chat/intención en la nube)
+requests

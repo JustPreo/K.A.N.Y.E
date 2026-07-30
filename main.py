@@ -498,8 +498,10 @@ def run_voice_mode(hotkey: str) -> None:
     running = True
     while running:
         tray.set_state("idle")
+        gui.hide()
         print(f"Estado: esperando [{hotkey.upper()}]...")
         wait_for_hotkey(hotkey)
+        gui.show()
         say("Te escucho.")
         cmd = _get_command()
         if cmd:
@@ -611,7 +613,8 @@ def main() -> None:
     ambient.start()
     monitor.start()
 
-    speak("KANYE iniciado.", use_cache=True)
+    if config.get("startup_tts", True):
+        speak("KANYE iniciado.", use_cache=True)
     gui.add_system("Sistema listo. Presioná el botón o Ctrl+F9 para hablar.")
 
     if TEXT_MODE:

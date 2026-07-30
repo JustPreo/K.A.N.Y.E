@@ -102,6 +102,7 @@ def _build_config_tab(nb: ttk.Notebook):
         ("chat_backend",        "Backend de chat/intención", "combo", ["ollama", "deepseek"]),
         ("deepseek_model",      "Modelo DeepSeek",       "entry",    "deepseek-chat"),
         ("deepseek_api_key",    "DeepSeek API key",      "entry",    ""),
+        ("startup_tts",         "Anunciar inicio por voz", "check",  True),
     ]
 
     widgets = {}

@@ -29,6 +29,7 @@ def get_config() -> dict:
         "voice_model": "voices/es_ES-davefx-medium.onnx",
         "tts_cache_dir": "cache/tts",
         "language": "es",
+        "startup_tts": True,
     }
 
     if not config_path.exists():

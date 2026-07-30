@@ -216,6 +216,8 @@ def _build_window():
     threading.Thread(target=_stats_loop, daemon=True).start()
 
     root.protocol("WM_DELETE_WINDOW", _on_close)
+    root.bind("<Escape>", lambda e: hide())
+    root.withdraw()   # arranca oculta — aparece solo con el hotkey
     root.mainloop()
 
 
@@ -355,6 +357,26 @@ def _append(text: str, tag: str) -> None:
         _chat_box.see(tk.END)
         _chat_box.config(state=tk.DISABLED)
     _safe(_do)
+
+
+def show() -> None:
+    """Muestra la ventana (popup, como al presionar el hotkey)."""
+    def _do():
+        if not _root:
+            return
+        _root.deiconify()
+        _root.lift()
+        _root.attributes("-topmost", True)
+        _root.after(50, lambda: _root.attributes("-topmost", False))
+        _root.focus_force()
+        if _kb_entry:
+            _kb_entry.focus_set()
+    _safe(_do)
+
+
+def hide() -> None:
+    """Oculta la ventana (vuelve a correr en segundo plano)."""
+    _safe(lambda: _root.withdraw() if _root else None)
 
 
 def is_available() -> bool:
