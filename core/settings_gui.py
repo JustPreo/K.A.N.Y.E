@@ -69,6 +69,53 @@ def _btn(parent, text, cmd, color=ACC):
 
 # ── Tab Configuración ─────────────────────────────────────────────────────────
 
+def _detect_voice_models() -> list[str]:
+    voices_dir = PROJECT_ROOT / "voices"
+    found = sorted(str(p.relative_to(PROJECT_ROOT)) for p in voices_dir.glob("*.onnx")) if voices_dir.exists() else []
+    return found or ["voices/es_ES-davefx-medium.onnx"]
+
+
+# Cada sección agrupa campos relacionados para que la pantalla no sea una
+# lista plana de 15 cajas de texto sueltas.
+# tipos: combo (dropdown fijo), combo_edit (dropdown + se puede tipear
+# otro valor), combo_files (dropdown autodetectado), spin (numérico con
+# flechas), check (sí/no), password (oculto, con botón de ojo).
+def _build_sections(voice_models: list[str]) -> list[tuple[str, list[tuple]]]:
+    return [
+        ("⚙  General", [
+            ("hotkey", "Hotkey para activar", "combo_edit",
+             ["ctrl+f9", "ctrl+shift+k", "alt+space", "ctrl+alt+k"], "ctrl+f9"),
+            ("startup_tts", "Anunciar inicio por voz", "check", None, True),
+            ("auto_listen_on_hotkey", "Escuchar de una al presionar el hotkey", "check", None, True),
+        ]),
+        ("🎧  Voz y reconocimiento", [
+            ("language", "Idioma de reconocimiento", "combo",
+             ["es", "en", "pt", "fr", "de", "it"], "es"),
+            ("stt_whisper_model", "Modelo Whisper", "combo",
+             ["tiny", "base", "small", "medium"], "base"),
+            ("voice_model", "Voz (Piper)", "combo_files", voice_models, voice_models[0]),
+            ("stt_silence_secs", "Segundos de silencio para cortar", "spin",
+             (0.5, 5.0, 0.5), 1.5),
+            ("stt_max_secs", "Máx. segundos grabando", "spin",
+             (3, 30, 1), 10.0),
+            ("stt_silence_threshold", "Sensibilidad del micrófono (umbral)", "spin",
+             (100, 5000, 100), 500),
+        ]),
+        ("🤖  IA / Chat", [
+            ("use_llm_classifier", "Usar clasificador de intención con IA", "check", None, True),
+            ("chat_backend", "Backend de chat/intención", "combo",
+             ["ollama", "deepseek"], "ollama"),
+            ("chat_model", "Modelo de chat (Ollama)", "combo_edit",
+             ["phi4-mini", "qwen2.5:1.5b", "llama3.2", "mistral", "gemma2"], "phi4-mini"),
+            ("intent_model", "Modelo de intención (Ollama)", "combo_edit",
+             ["qwen2.5:1.5b", "phi4-mini", "llama3.2:1b"], "qwen2.5:1.5b"),
+            ("deepseek_model", "Modelo DeepSeek", "combo_edit",
+             ["deepseek-chat", "deepseek-reasoner"], "deepseek-chat"),
+            ("deepseek_api_key", "DeepSeek API key", "password", None, ""),
+        ]),
+    ]
+
+
 def _build_config_tab(nb: ttk.Notebook):
     frame = tk.Frame(nb, bg=BG)
     nb.add(frame, text="  Configuración  ")
@@ -79,84 +126,108 @@ def _build_config_tab(nb: ttk.Notebook):
 
     inner.bind("<Configure>", lambda e: canvas.configure(
         scrollregion=canvas.bbox("all")))
-    canvas.create_window((0, 0), window=inner, anchor="nw")
+    canvas_window = canvas.create_window((0, 0), window=inner, anchor="nw")
+    canvas.bind("<Configure>", lambda e: canvas.itemconfigure(canvas_window, width=e.width))
     canvas.configure(yscrollcommand=scroll.set)
     canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
+    def _on_wheel(evt):
+        canvas.yview_scroll(-1 if evt.delta > 0 else 1, "units")
+    canvas.bind_all("<MouseWheel>", _on_wheel)
+    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
     from core.config_loader import get_config
     current = get_config()
-    local   = _load(CONFIG_LOCAL)
-
-    FIELDS = [
-        ("hotkey",              "Hotkey",               "entry",    "ctrl+f9"),
-        ("chat_model",          "Modelo de chat",        "entry",    "phi4-mini"),
-        ("intent_model",        "Modelo de intención",   "entry",    "qwen2.5:1.5b"),
-        ("stt_whisper_model",   "Modelo Whisper",        "combo",    ["tiny","base","small","medium"]),
-        ("use_llm_classifier",  "Usar clasificador LLM", "check",    True),
-        ("language",            "Idioma STT",            "entry",    "es"),
-        ("stt_silence_secs",    "Segundos de silencio",  "entry",    "1.5"),
-        ("stt_max_secs",        "Máx. segundos grabando","entry",    "10.0"),
-        ("stt_silence_threshold","Umbral de silencio",   "entry",    "500"),
-        ("voice_model",         "Modelo de voz (.onnx)", "entry",    "voices/es_ES-davefx-medium.onnx"),
-        ("chat_backend",        "Backend de chat/intención", "combo", ["ollama", "deepseek"]),
-        ("deepseek_model",      "Modelo DeepSeek",       "entry",    "deepseek-chat"),
-        ("deepseek_api_key",    "DeepSeek API key",      "entry",    ""),
-        ("startup_tts",         "Anunciar inicio por voz", "check",  True),
-        ("auto_listen_on_hotkey", "Escuchar de una con Ctrl+F9", "check", True),
-    ]
 
     widgets = {}
+    row = 0
 
-    for i, (key, label, wtype, default) in enumerate(FIELDS):
-        val = current.get(key, default)
+    for section_title, fields in _build_sections(_detect_voice_models()):
+        if row > 0:
+            tk.Frame(inner, bg=BG, height=14).grid(row=row, columnspan=2)
+            row += 1
 
-        tk.Label(inner, text=label, bg=BG, fg=FG2, font=FONTS,
-                 anchor="w").grid(row=i, column=0, sticky="w", padx=16, pady=(8,0))
+        tk.Label(inner, text=section_title, bg=BG, fg=ACC, font=FONTB,
+                 anchor="w").grid(row=row, columnspan=2, sticky="w", padx=14, pady=(4, 2))
+        row += 1
+        tk.Frame(inner, bg="#333", height=1).grid(
+            row=row, columnspan=2, sticky="ew", padx=14, pady=(0, 6))
+        row += 1
 
-        if wtype == "entry":
-            var = tk.StringVar(value=str(val))
-            e = tk.Entry(inner, textvariable=var, width=36)
-            _style_widget(e)
-            e.grid(row=i, column=1, sticky="ew", padx=16, pady=(8,0))
-            widgets[key] = ("entry", var)
+        for key, label, wtype, options, default in fields:
+            val = current.get(key, default)
 
-        elif wtype == "combo":
-            var = tk.StringVar(value=str(val))
-            c = ttk.Combobox(inner, textvariable=var, values=default, width=18, state="readonly")
-            c.grid(row=i, column=1, sticky="w", padx=16, pady=(8,0))
-            widgets[key] = ("entry", var)
+            tk.Label(inner, text=label, bg=BG, fg=FG2, font=FONTS,
+                     anchor="w").grid(row=row, column=0, sticky="w", padx=(24, 8), pady=6)
 
-        elif wtype == "check":
-            var = tk.BooleanVar(value=bool(val))
-            cb = tk.Checkbutton(inner, variable=var, bg=BG, fg=FG,
-                                selectcolor=BG3, activebackground=BG,
-                                font=FONT)
-            cb.grid(row=i, column=1, sticky="w", padx=16, pady=(8,0))
-            widgets[key] = ("bool", var)
+            if wtype in ("combo", "combo_edit", "combo_files"):
+                choices = options if wtype != "combo_files" else options
+                var = tk.StringVar(value=str(val))
+                state = "readonly" if wtype == "combo" else "normal"
+                c = ttk.Combobox(inner, textvariable=var, values=choices,
+                                  width=28, state=state, font=FONTS)
+                c.grid(row=row, column=1, sticky="w", padx=16, pady=6)
+                widgets[key] = ("str", var)
+
+            elif wtype == "spin":
+                lo, hi, step = options
+                var = tk.StringVar(value=str(val))
+                s = ttk.Spinbox(inner, from_=lo, to=hi, increment=step,
+                                 textvariable=var, width=10, font=FONTS)
+                s.grid(row=row, column=1, sticky="w", padx=16, pady=6)
+                widgets[key] = ("num", var)
+
+            elif wtype == "check":
+                var = tk.BooleanVar(value=bool(val))
+                cb = tk.Checkbutton(inner, variable=var, bg=BG, fg=FG,
+                                     selectcolor=BG3, activebackground=BG,
+                                     font=FONT)
+                cb.grid(row=row, column=1, sticky="w", padx=16, pady=6)
+                widgets[key] = ("bool", var)
+
+            elif wtype == "password":
+                pw_frame = tk.Frame(inner, bg=BG)
+                pw_frame.grid(row=row, column=1, sticky="ew", padx=16, pady=6)
+                var = tk.StringVar(value=str(val))
+                e = tk.Entry(pw_frame, textvariable=var, show="•", width=30)
+                _style_widget(e)
+                e.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+                def toggle_show(entry=e):
+                    entry.configure(show="" if entry.cget("show") == "•" else "•")
+
+                tk.Button(pw_frame, text="👁", command=toggle_show,
+                          bg=BG3, fg=FG2, activebackground="#333",
+                          relief=tk.FLAT, cursor="hand2", padx=6
+                          ).pack(side=tk.LEFT, padx=(4, 0))
+                widgets[key] = ("str", var)
+
+            row += 1
 
     inner.columnconfigure(1, weight=1)
 
     def save():
         data = {}
-        for key, (wtype, var) in widgets.items():
+        for key, (kind, var) in widgets.items():
             raw = var.get()
-            if wtype == "bool":
+            if kind == "bool":
                 data[key] = bool(raw)
-            else:
+            elif kind == "num":
                 try:
-                    if "." in str(raw):
-                        data[key] = float(raw)
-                    else:
-                        data[key] = int(raw)
+                    data[key] = float(raw) if "." in str(raw) else int(raw)
                 except ValueError:
                     data[key] = raw
+            else:
+                data[key] = raw
         if _save(CONFIG_LOCAL, data):
-            messagebox.showinfo("Guardado", "config.local.json guardado.\nReiniciá K.A.N.Y.E. para aplicar los cambios.")
+            messagebox.showinfo("Guardado", "Configuración guardada.\nReiniciá K.A.N.Y.E. para aplicar los cambios.")
 
-    tk.Frame(inner, bg=BG, height=12).grid(row=len(FIELDS), columnspan=2)
-    _btn(inner, "Guardar configuración", save).grid(
-        row=len(FIELDS)+1, column=0, columnspan=2, pady=12, padx=16, sticky="ew")
+    tk.Frame(inner, bg=BG, height=12).grid(row=row, columnspan=2)
+    row += 1
+    _btn(inner, "💾 Guardar configuración", save).grid(
+        row=row, column=0, columnspan=2, pady=(4, 16), padx=16, sticky="ew")
 
     return frame
 
@@ -479,6 +550,25 @@ def open_settings(parent=None):
     style.map("Kanye.TNotebook.Tab",
               background=[("selected", BG2)],
               foreground=[("selected", ACC)])
+
+    # Combobox / Spinbox oscuros, para que no desentonen con el resto.
+    style.configure("TCombobox",
+                     fieldbackground=BG2, background=BG2, foreground=FG,
+                     arrowcolor=ACC, bordercolor="#333", lightcolor=BG2, darkcolor=BG2)
+    style.map("TCombobox",
+              fieldbackground=[("readonly", BG2), ("disabled", BG2)],
+              foreground=[("readonly", FG), ("disabled", FG2)],
+              selectbackground=[("readonly", BG2)],
+              selectforeground=[("readonly", FG)])
+    win.option_add("*TCombobox*Listbox.background", BG2)
+    win.option_add("*TCombobox*Listbox.foreground", FG)
+    win.option_add("*TCombobox*Listbox.selectBackground", SEL)
+    win.option_add("*TCombobox*Listbox.font", FONTS)
+
+    style.configure("TSpinbox",
+                     fieldbackground=BG2, background=BG2, foreground=FG,
+                     arrowcolor=ACC, bordercolor="#333", lightcolor=BG2, darkcolor=BG2)
+    style.map("TSpinbox", fieldbackground=[("readonly", BG2)])
 
     nb = ttk.Notebook(win, style="Kanye.TNotebook")
     nb.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0,8))
