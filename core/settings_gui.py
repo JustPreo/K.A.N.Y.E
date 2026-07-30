@@ -99,6 +99,9 @@ def _build_config_tab(nb: ttk.Notebook):
         ("stt_max_secs",        "Máx. segundos grabando","entry",    "10.0"),
         ("stt_silence_threshold","Umbral de silencio",   "entry",    "500"),
         ("voice_model",         "Modelo de voz (.onnx)", "entry",    "voices/es_ES-davefx-medium.onnx"),
+        ("chat_backend",        "Backend de chat/intención", "combo", ["ollama", "deepseek"]),
+        ("deepseek_model",      "Modelo DeepSeek",       "entry",    "deepseek-chat"),
+        ("deepseek_api_key",    "DeepSeek API key",      "entry",    ""),
     ]
 
     widgets = {}

@@ -2,6 +2,7 @@ import json
 import ollama
 
 from core.config_loader import get_config
+from core import deepseek_client
 
 
 ALLOWED_INTENTS = [
@@ -64,18 +65,27 @@ def classify_with_llm(user_text: str) -> dict:
 
     config = get_config()
     model_name = config.get("intent_model", "qwen2.5:1.5b")
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_text},
+    ]
 
     try:
-        response = ollama.chat(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_text},
-            ],
-            options={"temperature": 0, "num_predict": 80},
-        )
+        raw = None
+        if deepseek_client.is_enabled():
+            try:
+                raw = deepseek_client.chat(messages, temperature=0, max_tokens=80)
+            except deepseek_client.DeepSeekError as error:
+                print(f"K.A.N.Y.E.: DeepSeek falló ({error}), usando modelo local.")
 
-        raw = response["message"]["content"].strip()
+        if raw is None:
+            response = ollama.chat(
+                model=model_name,
+                messages=messages,
+                options={"temperature": 0, "num_predict": 80},
+            )
+            raw = response["message"]["content"].strip()
+
         cleaned = _clean_json(raw)
         data = json.loads(cleaned)
 

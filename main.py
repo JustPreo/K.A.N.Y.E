@@ -4,7 +4,7 @@ import sys
 import threading
 from pathlib import Path
 
-from core.intent_router import detect_intent
+from core.intent_router import detect_intent, split_commands
 from core.app_resolver import find_best_app_match, scan_apps
 from core.system_actions import open_application
 from core.web_search import search_google
@@ -447,6 +447,25 @@ def handle_command(command: str) -> bool:
     return True
 
 
+def handle_command_chain(command: str) -> bool:
+    """Parte comandos concatenados ('pon x y abre y') y los ejecuta en orden.
+    No parte si la última interacción fue chat sin un verbo de comando claro,
+    para no romper una respuesta conversacional en curso."""
+    if LAST_INTERACTION["type"] == "chat" and not is_clear_system_command(command):
+        return handle_command(command)
+
+    subcommands = split_commands(command)
+    if len(subcommands) <= 1:
+        return handle_command(command)
+
+    running = True
+    for sub in subcommands:
+        running = handle_command(sub)
+        if not running:
+            break
+    return running
+
+
 # ─── Bucles ───────────────────────────────────────────────────────────────────
 
 def _get_command() -> str:
@@ -484,7 +503,7 @@ def run_voice_mode(hotkey: str) -> None:
         say("Te escucho.")
         cmd = _get_command()
         if cmd:
-            running = handle_command(cmd)
+            running = handle_command_chain(cmd)
 
 
 def run_text_mode() -> None:
@@ -493,7 +512,7 @@ def run_text_mode() -> None:
     while running:
         cmd = _get_command()
         if cmd:
-            running = handle_command(cmd)
+            running = handle_command_chain(cmd)
 
 
 # ─── Inicio ───────────────────────────────────────────────────────────────────

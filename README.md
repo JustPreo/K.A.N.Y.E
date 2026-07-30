@@ -91,6 +91,24 @@ curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davef
 
 ---
 
+## DeepSeek (opcional, en la nube)
+
+Por defecto K.A.N.Y.E. usa Ollama local para chat y clasificación de intención. Si querés respuestas de más calidad y tenés API key de DeepSeek, podés activarlo en `config/config.local.json`:
+
+```json
+{
+  "chat_backend": "deepseek",
+  "deepseek_api_key": "sk-...",
+  "deepseek_model": "deepseek-chat"
+}
+```
+
+- Se usa para el chat (`ask_llm`) y el clasificador de intención (`llm_intent`).
+- Si la llamada falla (sin internet, error de API, key inválida), cae automáticamente al modelo local de Ollama — nunca te deja sin asistente.
+- `deepseek-chat` es el modelo más barato (fracciones de centavo por sesión de uso normal). No pongas la key en `config.json` (ese sí va a git); `config.local.json` está en `.gitignore`.
+
+---
+
 ## Archivos personales
 
 Estos archivos **no están en el repo** (`.gitignore`) porque contienen tus datos:
@@ -173,6 +191,17 @@ Todos se dicen después de presionar `Ctrl+F9`.
 | `reemplaza [viejo] por [nuevo] en archivo [archivo]` | Reemplazar texto |
 
 Podés especificar workspace: `lee archivo main.py en proyecto web`
+
+### Comandos concatenados
+
+Podés decir varios comandos en una sola frase, separados por "y", "luego" o "después":
+
+```
+pon runaway de kanye west y abre firefox
+cierra spotify y activa modo estudio
+```
+
+Cada parte se ejecuta en orden. Solo se parte si lo que sigue al conector es un verbo de comando reconocido — `busca pan y vino` no se parte, porque "vino" no es un comando.
 
 ### IA y historial
 
