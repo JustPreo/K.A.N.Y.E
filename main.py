@@ -41,6 +41,7 @@ import core.gui as gui
 
 LAST_INTERACTION = {"type": None}
 TEXT_MODE = "--text" in sys.argv
+HIDDEN_START = "--hidden" in sys.argv   # usado por el autostart de Hyprland
 
 
 def set_last_interaction(t: str) -> None:
@@ -494,9 +495,9 @@ def _get_command() -> str:
     return cmd
 
 
-def run_voice_mode(hotkey: str) -> None:
+def run_voice_mode(hotkey: str, start_visible: bool = False) -> None:
     running = True
-    visible = False
+    visible = start_visible
     while running:
         tray.set_state("idle")
         if not visible:
@@ -585,7 +586,7 @@ def main() -> None:
 
     if not TEXT_MODE:
         tray.start(on_quit=lambda: sys.exit(0))
-        gui.start()
+        gui.start(start_hidden=HIDDEN_START)
 
         print("K.A.N.Y.E.: Calibrando micrófono...")
         set_calibrated_threshold(calibrate(duration=1.2))
@@ -631,7 +632,7 @@ def main() -> None:
     if TEXT_MODE:
         run_text_mode()
     else:
-        run_voice_mode(hotkey)
+        run_voice_mode(hotkey, start_visible=not HIDDEN_START)
 
 
 if __name__ == "__main__":

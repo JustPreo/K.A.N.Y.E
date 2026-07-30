@@ -20,6 +20,7 @@ _kb_frame = None
 _kb_entry = None
 _kb_active = False
 _trigger_callback = None
+_start_hidden = True
 _kb_callback = None       # fn(text) → llamado al enviar comando por teclado
 _available = False
 
@@ -217,7 +218,8 @@ def _build_window():
 
     root.protocol("WM_DELETE_WINDOW", _on_close)
     root.bind("<Escape>", lambda e: hide())
-    root.withdraw()   # arranca oculta — aparece solo con el hotkey
+    if _start_hidden:
+        root.withdraw()   # arranca oculta — aparece solo con el hotkey
     root.mainloop()
 
 
@@ -304,10 +306,11 @@ def _safe(fn):
 
 # ── API pública ───────────────────────────────────────────────────────────────
 
-def start(on_trigger=None) -> bool:
+def start(on_trigger=None, start_hidden: bool = True) -> bool:
     """Inicia la ventana en un hilo daemon. Retorna True si tkinter está disponible."""
-    global _trigger_callback
+    global _trigger_callback, _start_hidden
     _trigger_callback = on_trigger
+    _start_hidden = start_hidden
     try:
         import tkinter as _tk  # noqa: verificar disponibilidad
         t = threading.Thread(target=_build_window, daemon=True)
