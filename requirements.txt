@@ -12,8 +12,11 @@ piper-tts
 # Reconocimiento difuso de apps/procesos
 rapidfuzz
 
-# LLM local
-ollama
+# LLM local (>=0.3 por soporte de tool calling)
+ollama>=0.3.0
+
+# Backend DeepSeek (opcional)
+requests
 
 # Hotkey global (cross-platform)
 pynput

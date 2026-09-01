@@ -28,8 +28,6 @@ def _check_ollama() -> bool:
         available = {m.model for m in response.models}
 
         needed: set[str] = {config.get("chat_model", "phi4-mini")}
-        if config.get("use_llm_classifier", True):
-            needed.add(config.get("intent_model", "qwen2.5:1.5b"))
 
         # ollama list muestra "phi4-mini:latest" pero el config dice "phi4-mini"
         def is_available(model_name: str) -> bool:

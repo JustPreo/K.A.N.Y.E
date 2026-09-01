@@ -138,11 +138,8 @@ def step_check_ollama():
     print("  ✓ Ollama disponible.")
     print("\n  Descargando modelos (puede tardar según tu conexión)...")
 
-    print("  → phi4-mini (chat, ~2.5 GB)...")
+    print("  → phi4-mini (chat + tool-calling, ~2.5 GB)...")
     run(["ollama", "pull", "phi4-mini"])
-
-    print("  → qwen2.5:1.5b (clasificador, ~1 GB)...")
-    run(["ollama", "pull", "qwen2.5:1.5b"])
 
     print("  ✓ Modelos Ollama listos.")
 
@@ -219,11 +216,13 @@ def step_post_install_notes():
         )
 
     print(
-        "\n  RAM mínima recomendada por configuración:\n"
-        "    4-6 GB  → Cambiá chat_model a 'qwen2.5:1.5b' en config/config.local.json\n"
-        "              y use_llm_classifier a false\n"
-        "    8 GB    → Configuración actual (phi4-mini + qwen2.5:1.5b)\n"
-        "    16 GB+  → Podés subir a modelos más grandes si querés\n"
+        "\n  K.A.N.Y.E. es agéntico: el modelo de chat_model encadena acciones\n"
+        "  reales (tool calling), no solo conversa. Necesita un modelo que\n"
+        "  soporte function calling de forma confiable:\n"
+        "    8 GB    → phi4-mini (default) — soporte de tools limitado\n"
+        "    16 GB+  → qwen2.5:7b — tool calling mucho más confiable\n"
+        "  Si tenés API key de DeepSeek (ver README), usala como backend\n"
+        "  principal — es la opción más confiable para encadenar acciones.\n"
         "\n  Whisper model vs velocidad:\n"
         "    tiny  (~39 MB)  → ultra rápido, menos preciso\n"
         "    base  (~74 MB)  → balance ideal (default)\n"

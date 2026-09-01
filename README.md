@@ -74,20 +74,26 @@ curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davef
 {
   "hotkey": "ctrl+f9",
   "chat_model": "phi4-mini",
-  "intent_model": "qwen2.5:1.5b",
   "stt_whisper_model": "base",
-  "use_llm_classifier": true,
+  "max_tool_iterations": 6,
   "language": "es"
 }
 ```
 
+K.A.N.Y.E. es **agéntico**: `chat_model` no es solo para conversar, es el
+modelo que decide qué acciones ejecutar (tool calling) y en qué orden. Por
+eso necesita soportar function calling de forma confiable, no solo generar
+texto:
+
 **Por RAM disponible:**
 
-| RAM | `chat_model` | `stt_whisper_model` | `use_llm_classifier` |
+| RAM | `chat_model` | `stt_whisper_model` | Notas |
 |---|---|---|---|
-| ≤ 4 GB | `qwen2.5:1.5b` | `tiny` | `false` |
-| 6–8 GB | `phi4-mini` | `base` | `false` |
-| 16 GB+ | `phi4-mini` | `base` | `true` |
+| 6–8 GB | `phi4-mini` (default) | `base` | Soporte de tools limitado — para acciones simples anda bien, para cadenas largas conviene DeepSeek |
+| 16 GB+ | `qwen2.5:7b` | `base` | Tool calling mucho más confiable en local |
+
+`max_tool_iterations` limita cuántos pasos seguidos puede encadenar el
+agente antes de forzarlo a responder (default 6).
 
 ---
 
@@ -103,7 +109,7 @@ Por defecto K.A.N.Y.E. usa Ollama local para chat y clasificación de intención
 }
 ```
 
-- Se usa para el chat (`ask_llm`) y el clasificador de intención (`llm_intent`).
+- Es el backend principal del loop agéntico (`core/agent.py`) cuando está habilitado — tool calling incluido.
 - Si la llamada falla (sin internet, error de API, key inválida), cae automáticamente al modelo local de Ollama — nunca te deja sin asistente.
 - `deepseek-chat` es el modelo más barato (fracciones de centavo por sesión de uso normal). No pongas la key en `config.json` (ese sí va a git); `config.local.json` está en `.gitignore`.
 
@@ -125,90 +131,50 @@ Las plantillas `modes.example.json` y `sites.example.json` están en el repo com
 
 ---
 
-## Comandos
+## Cómo funciona (agéntico)
 
-Todos se dicen después de presionar `Ctrl+F9`.
+K.A.N.Y.E. **no** tiene una lista fija de frases-comando. Todo lo que decís
+(después de `Ctrl+F9`) va a un loop agéntico (`core/agent.py`): el LLM
+configurado (DeepSeek o el modelo local de Ollama) decide, en lenguaje
+natural, qué herramientas ejecutar, en qué orden, y cuándo ya tiene una
+respuesta final — sin pasar por un clasificador de intención rígido.
 
-### Apps y sistema
+Podés pedir varias cosas en la misma frase y el agente las encadena solo:
+
+```
+cerrá spotify, abrí firefox y buscame el clima
+activá modo estudio y bajale al volumen
+```
+
+**Herramientas disponibles** (`core/tools.py`):
+
+| Categoría | Herramientas |
+|---|---|
+| Apps y sistema | `open_app`, `close_app`, `open_folder` |
+| Web y búsqueda | `web_search`, `open_site`, `add_site` |
+| Música y multimedia | `play_music`, `media_control` (play/pause, siguiente, anterior, volumen) |
+| Teclado | `type_text`, `keyboard_shortcut` (copiar/pegar/deshacer/atajos de ventana/etc.) |
+| Modos de trabajo | `activate_mode`, `list_modes` |
+| Archivos de proyecto | `read_file`, `search_in_file`, `backup_file`, `replace_in_file` |
+| Focus | `focus_status`, `focus_off` |
+
+`replace_in_file` sigue pidiendo confirmación por terminal y hace backup
+automático antes de tocar el archivo, igual que antes.
+
+**Fuera del loop agéntico** (housekeeping instantáneo o wizards interactivos
+que no encajan en un solo tool call, resueltos directo en `main.py` sin
+pasar por el LLM):
 
 | Di... | Acción |
 |---|---|
-| `abre / lanza / ejecuta [app]` | Abrir aplicación (búsqueda difusa) |
-| `cierra / termina / mata [app]` | Cerrar proceso |
-| `abre [descargas/documentos/escritorio/...]` | Abrir carpeta del sistema |
 | `salir` | Cerrar K.A.N.Y.E. |
-
-### Web y búsqueda
-
-| Di... | Acción |
-|---|---|
-| `busca / googlea [tema]` | Buscar en Google |
-| `abre sitio / abre página [nombre]` | Abrir sitio guardado |
-| `guarda sitio [nombre]` | Guardar nuevo sitio (pide URL) |
-
-### Música y multimedia
-
-| Di... | Acción |
-|---|---|
-| `pon / reproduce / toca [canción]` | Abrir en YouTube Music |
-| `pausa` / `reanuda` | Play/pausa |
-| `siguiente` / `anterior` | Cambiar pista |
-| `sube volumen` / `baja volumen` / `silencia` | Volumen |
-
-### Teclado por voz
-
-| Di... | Acción |
-|---|---|
-| `escribe [texto]` | Escribir texto (soporta tildes/ñ) |
-| `escribe en mayúsculas [texto]` | Escribir en MAYÚSCULAS |
-| `selecciona todo` | Ctrl+A |
-| `copia` / `pega` / `corta` | Ctrl+C / V / X |
-| `deshace` / `rehace` | Ctrl+Z / Y |
-| `guarda el archivo` | Ctrl+S |
-| `presiona enter/tab/escape` | Tecla individual |
-| `cierra ventana` / `cambia ventana` | Alt+F4 / Alt+Tab |
-| `nueva pestaña` / `cierra pestaña` / `recarga` | Ctrl+T / W / F5 |
-
-### Modos de trabajo
-
-| Di... | Acción |
-|---|---|
-| `activa modo [nombre]` | Abrir apps/URLs/carpetas configuradas |
-| `crea modo [nombre]` | Crear modo (interactivo en terminal) |
-| `edita modo [nombre]` | Editar modo existente |
-| `elimina modo [nombre]` | Eliminar modo |
-| `modos` | Listar modos disponibles |
-| `desbloquea` | Desactivar focus mode |
-| `estado focus` | Ver tiempo restante del focus |
-
-### Archivos
-
-| Di... | Acción |
-|---|---|
-| `lee archivo [archivo]` | Mostrar contenido |
-| `busca en archivo [archivo] el texto [texto]` | Buscar texto |
-| `haz backup de archivo [archivo]` | Crear backup |
-| `reemplaza [viejo] por [nuevo] en archivo [archivo]` | Reemplazar texto |
-
-Podés especificar workspace: `lee archivo main.py en proyecto web`
-
-### Comandos concatenados
-
-Podés decir varios comandos en una sola frase, separados por "y", "luego" o "después":
-
-```
-pon runaway de kanye west y abre firefox
-cierra spotify y activa modo estudio
-```
-
-Cada parte se ejecuta en orden. Solo se parte si lo que sigue al conector es un verbo de comando reconocido — `busca pan y vino` no se parte, porque "vino" no es un comando.
-
-### IA y historial
-
-| Di... | Acción |
-|---|---|
-| Cualquier pregunta | Conversación con phi4-mini |
 | `borra historial` | Limpiar contexto de conversación |
+| `crea modo [nombre]` | Crear modo (wizard interactivo en terminal) |
+| `edita modo [nombre]` | Editar modo existente (wizard) |
+| `elimina modo [nombre]` | Eliminar modo (con confirmación) |
+
+Todo lo demás — preguntas, opiniones, y cualquier pedido de acción —
+lo maneja el agente.
 
 ---
 
