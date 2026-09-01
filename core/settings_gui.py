@@ -94,13 +94,13 @@ def _detect_voice_models() -> list[str]:
 # flechas), check (sí/no), password (oculto, con botón de ojo).
 def _build_sections(voice_models: list[str]) -> list[tuple[str, list[tuple]]]:
     return [
-        ("⚙  General", [
+        ("GENERAL", [
             ("hotkey", "Hotkey para activar", "combo_edit",
              ["ctrl+f9", "ctrl+shift+k", "alt+space", "ctrl+alt+k"], "ctrl+f9"),
             ("startup_tts", "Anunciar inicio por voz", "check", None, True),
             ("auto_listen_on_hotkey", "Escuchar de una al presionar el hotkey", "check", None, True),
         ]),
-        ("🎧  Voz y reconocimiento", [
+        ("VOZ Y RECONOCIMIENTO", [
             ("language", "Idioma de reconocimiento", "combo",
              ["es", "en", "pt", "fr", "de", "it"], "es"),
             ("stt_whisper_model", "Modelo Whisper", "combo",
@@ -113,7 +113,7 @@ def _build_sections(voice_models: list[str]) -> list[tuple[str, list[tuple]]]:
             ("stt_silence_threshold", "Sensibilidad del micrófono (umbral)", "spin",
              (100, 5000, 100), 500),
         ]),
-        ("🤖  Agente", [
+        ("AGENTE", [
             ("chat_backend", "Backend del agente", "combo",
              ["ollama", "deepseek"], "ollama"),
             ("chat_model", "Modelo del agente (Ollama)", "combo_edit",
@@ -206,13 +206,17 @@ def _build_config_tab(nb: ttk.Notebook):
                 _style_widget(e)
                 e.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-                def toggle_show(entry=e):
-                    entry.configure(show="" if entry.cget("show") == "•" else "•")
+                eye_btn = tk.Button(pw_frame, text="MOSTRAR",
+                                     bg=BG3, fg=FG2, activebackground=LINE,
+                                     relief=tk.FLAT, cursor="hand2", padx=6)
 
-                tk.Button(pw_frame, text="👁", command=toggle_show,
-                          bg=BG3, fg=FG2, activebackground=LINE,
-                          relief=tk.FLAT, cursor="hand2", padx=6
-                          ).pack(side=tk.LEFT, padx=(4, 0))
+                def toggle_show(entry=e, btn=eye_btn):
+                    hidden = entry.cget("show") == "•"
+                    entry.configure(show="" if hidden else "•")
+                    btn.configure(text="OCULTAR" if hidden else "MOSTRAR")
+
+                eye_btn.configure(command=toggle_show)
+                eye_btn.pack(side=tk.LEFT, padx=(4, 0))
                 widgets[key] = ("str", var)
 
             row += 1
@@ -237,7 +241,7 @@ def _build_config_tab(nb: ttk.Notebook):
 
     tk.Frame(inner, bg=BG, height=12).grid(row=row, columnspan=2)
     row += 1
-    _btn(inner, "💾 Guardar configuración", save).grid(
+    _btn(inner, "GUARDAR CONFIGURACIÓN", save).grid(
         row=row, column=0, columnspan=2, pady=(4, 16), padx=16, sticky="ew")
 
     return frame
