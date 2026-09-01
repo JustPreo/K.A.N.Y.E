@@ -115,6 +115,7 @@ LINUX_DESKTOP_DIRS = [
     Path.home() / ".local/share/applications",
     Path("/var/lib/flatpak/exports/share/applications"),
     Path.home() / ".local/share/flatpak/exports/share/applications",
+    Path("/var/lib/snapd/desktop/applications"),
 ]
 
 
