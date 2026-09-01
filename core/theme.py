@@ -3,22 +3,24 @@ Sistema de diseño compartido de K.A.N.Y.E.: paleta, tipografía y colores de
 estado. Un solo lugar para que gui.py, settings_gui.py y tray_icon.py no
 diverjan en los mismos valores.
 
-Dirección visual: brutalista/editorial. Negro puro, un acento dorado
-saturado, bloques de color en vez de degradados, sin esquinas redondeadas.
+Dirección visual: brutalista/editorial, monocromo. Negro puro, blanco y
+grises — sin acento de color de marca. Los únicos colores del sistema son
+los de estado (escuchando/procesando/hablando/error), que siguen siendo
+saturados porque cumplen una función (feedback), no decoración.
 """
 import tkinter.font as tkfont
 
 # ── Paleta ────────────────────────────────────────────────────────────────────
-VOID     = "#0A0A0A"   # fondo base
-INK      = "#141414"   # panel
-INK2     = "#1E1E1E"   # superficie elevada / hover
-LINE     = "#2A2A2A"   # línea divisoria
-TEXT     = "#F2F2F0"   # texto primario
-TEXT_DIM = "#6B6B6B"   # texto secundario
-GOLD     = "#FFC300"   # acento de marca
-GOLD_DIM = "#7A5D00"   # acento apagado (bordes, texto secundario dorado)
-ON_GOLD  = VOID         # texto sobre superficies doradas
-DANGER   = "#FF3B3B"
+VOID        = "#0A0A0A"   # fondo base
+INK         = "#141414"   # panel
+INK2        = "#1E1E1E"   # superficie elevada / hover
+LINE        = "#2A2A2A"   # línea divisoria
+TEXT        = "#F2F2F0"   # texto primario
+TEXT_DIM    = "#6B6B6B"   # texto secundario
+ACCENT      = "#FFFFFF"   # blanco puro — wordmark, CTA, énfasis
+ACCENT_DIM  = "#484848"   # gris medio — bordes/marcadores secundarios
+ON_ACCENT   = VOID         # texto sobre superficies ACCENT
+DANGER      = "#FF3B3B"
 
 STATE_COLORS = {
     "idle":       "#4D4D4D",

@@ -75,7 +75,7 @@ def _build_window():
 
     tk.Label(
         top_row, text="K·A·N·Y·E", font=FONT_WORDMARK,
-        bg=theme.VOID, fg=theme.GOLD,
+        bg=theme.VOID, fg=theme.ACCENT,
     ).pack(side=tk.LEFT)
 
     chip = tk.Label(
@@ -92,15 +92,15 @@ def _build_window():
         anchor="w", wraplength=360, justify=tk.LEFT,
     ).pack(fill=tk.X, pady=(4, 0))
 
-    tk.Frame(root, bg=theme.GOLD, height=2).pack(fill=tk.X)
+    tk.Frame(root, bg=theme.ACCENT, height=2).pack(fill=tk.X)
 
     # ── Modo activo ───────────────────────────────────────────────────────────
-    mode_row, mode_inner = _bar(root, theme.GOLD_DIM)
+    mode_row, mode_inner = _bar(root, theme.ACCENT_DIM)
     mode_row.pack(fill=tk.X)
     tk.Label(mode_inner, text="MODO", font=FONT_LABEL,
              bg=theme.INK2, fg=theme.TEXT_DIM).pack(side=tk.LEFT)
     mvalue = tk.Label(mode_inner, text="—", font=theme.mono_font(9, "bold"),
-                       bg=theme.INK2, fg=theme.GOLD, padx=8)
+                       bg=theme.INK2, fg=theme.ACCENT, padx=8)
     mvalue.pack(side=tk.LEFT)
 
     # ── Player bar (oculta hasta que hay reproducción) ─────────────────────────
@@ -141,7 +141,7 @@ def _build_window():
 
     chat.tag_configure("user_label",  foreground=theme.STATE_COLORS["speaking"], font=FONT_BODY_B)
     chat.tag_configure("user_body",   foreground=theme.TEXT, font=FONT_BODY)
-    chat.tag_configure("kanye_label", foreground=theme.GOLD, font=FONT_BODY_B)
+    chat.tag_configure("kanye_label", foreground=theme.ACCENT, font=FONT_BODY_B)
     chat.tag_configure("kanye_body",  foreground=theme.TEXT, font=FONT_BODY)
     chat.tag_configure("system",      foreground=theme.TEXT_DIM, font=theme.mono_font(8))
     chat.tag_configure("alert",       foreground=theme.STATE_COLORS["error"], font=FONT_BODY_B)
@@ -161,15 +161,15 @@ def _build_window():
         btn_frame,
         text="●  HABLAR   ·   CTRL+F9",
         font=FONT_CTA,
-        bg=theme.GOLD, fg=theme.VOID,
+        bg=theme.ACCENT, fg=theme.VOID,
         cursor="hand2", pady=10,
     )
     btn.pack(fill=tk.X)
     btn.bind("<Button-1>", lambda e: _on_button_click())
     theme.bind_hover(
         btn,
-        normal={"bg": theme.GOLD, "fg": theme.VOID},
-        hover={"bg": theme.VOID, "fg": theme.GOLD},
+        normal={"bg": theme.ACCENT, "fg": theme.VOID},
+        hover={"bg": theme.VOID, "fg": theme.ACCENT},
     )
 
     ghost_row = tk.Frame(btn_frame, bg=theme.VOID)
@@ -186,7 +186,7 @@ def _build_window():
         theme.bind_hover(
             lbl,
             normal={"fg": theme.TEXT_DIM, "highlightbackground": theme.LINE},
-            hover={"fg": theme.GOLD, "highlightbackground": theme.GOLD},
+            hover={"fg": theme.ACCENT, "highlightbackground": theme.ACCENT},
         )
         return lbl
 
@@ -201,24 +201,24 @@ def _build_window():
     kb_entry = tk.Entry(
         kb_frame,
         bg=theme.INK2, fg=theme.TEXT,
-        insertbackground=theme.GOLD,
+        insertbackground=theme.ACCENT,
         font=FONT_BODY,
         relief=tk.FLAT, bd=0,
         highlightthickness=1, highlightbackground=theme.LINE,
-        highlightcolor=theme.GOLD,
+        highlightcolor=theme.ACCENT,
     )
     kb_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=6, padx=(0, 6))
     kb_entry.bind("<Return>", lambda e: _on_kb_send(kb_entry))
 
     kb_send = tk.Label(
         kb_frame, text="ENVIAR", font=FONT_GHOST,
-        bg=theme.GOLD, fg=theme.VOID, cursor="hand2", padx=10, pady=6,
+        bg=theme.ACCENT, fg=theme.VOID, cursor="hand2", padx=10, pady=6,
     )
     kb_send.bind("<Button-1>", lambda e: _on_kb_send(kb_entry))
     theme.bind_hover(
         kb_send,
-        normal={"bg": theme.GOLD, "fg": theme.VOID},
-        hover={"bg": theme.VOID, "fg": theme.GOLD},
+        normal={"bg": theme.ACCENT, "fg": theme.VOID},
+        hover={"bg": theme.VOID, "fg": theme.ACCENT},
     )
     kb_send.pack(side=tk.RIGHT)
 
@@ -261,15 +261,12 @@ def _on_button_click():
 
 
 def _on_close():
+    """Cerrar la ventana (X, Win+C, Alt+F4, etc.) la oculta en vez de matar
+    K.A.N.Y.E. — para salir de verdad: 'salir' por voz/texto, o Salir en el
+    ícono de bandeja."""
     if _suppress_close:
         return
-    global _root, _available
-    _available = False
-    if _root:
-        _root.destroy()
-        _root = None
-    import os
-    os.kill(os.getpid(), 9)
+    hide()
 
 
 def _stop_player() -> None:
@@ -282,7 +279,7 @@ def _toggle_keyboard_mode(btn, frame) -> None:
     _kb_active = not _kb_active
     if _kb_active:
         frame.pack(fill=tk.X, pady=(0, 6))
-        btn.config(fg=theme.GOLD, highlightbackground=theme.GOLD)
+        btn.config(fg=theme.ACCENT, highlightbackground=theme.ACCENT)
         if _kb_entry:
             _kb_entry.focus_set()
     else:

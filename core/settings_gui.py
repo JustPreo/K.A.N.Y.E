@@ -20,8 +20,8 @@ BG2   = theme.INK
 BG3   = theme.INK2
 FG    = theme.TEXT
 FG2   = theme.TEXT_DIM
-ACC   = theme.GOLD
-SEL   = theme.GOLD_DIM
+ACC   = theme.ACCENT
+SEL   = theme.ACCENT_DIM
 LINE  = theme.LINE
 
 _win = None
