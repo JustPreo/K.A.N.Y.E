@@ -25,6 +25,7 @@ import core.keyboard_actions as keyboard_actions
 import core.mouse_actions as mouse_actions
 import core.focus_mode as focus_mode
 import core.notes_actions as notes_actions
+import core.window_actions as window_actions
 
 
 TOOLS = [
@@ -368,6 +369,22 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "minimize_window",
+            "description": "Minimiza la ventana activa (la que tiene el foco).",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "toggle_maximize_window",
+            "description": "Maximiza la ventana activa, o la restaura a su tamaño anterior si ya estaba maximizada.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "delete_note",
             "description": "Borra la nota o notas guardadas que coincidan con un texto.",
             "parameters": {
@@ -586,6 +603,14 @@ def _tool_delete_note(args: dict) -> str:
     return f"Borré {count} nota(s)." if count else f"No encontré ninguna nota con '{query}'."
 
 
+def _tool_minimize_window(args: dict) -> str:
+    return "Ventana minimizada." if window_actions.minimize_active() else "No pude minimizar la ventana activa."
+
+
+def _tool_toggle_maximize_window(args: dict) -> str:
+    return "Listo." if window_actions.toggle_maximize_active() else "No pude maximizar/restaurar la ventana activa."
+
+
 _DISPATCH = {
     "open_app": _tool_open_app,
     "close_app": _tool_close_app,
@@ -609,6 +634,8 @@ _DISPATCH = {
     "mouse_click": _tool_mouse_click,
     "mouse_scroll": _tool_mouse_scroll,
     "mouse_drag": _tool_mouse_drag,
+    "minimize_window": _tool_minimize_window,
+    "toggle_maximize_window": _tool_toggle_maximize_window,
     "add_note": _tool_add_note,
     "list_notes": _tool_list_notes,
     "delete_note": _tool_delete_note,

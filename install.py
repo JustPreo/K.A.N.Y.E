@@ -83,9 +83,12 @@ def step_system_deps_linux():
 
     # Paquetes requeridos por grupo
     # portaudio: sounddevice | playerctl: control multimedia | pactl: volumen
-    ubuntu_pkgs = ["portaudio19-dev", "libsndfile1", "playerctl", "pulseaudio-utils"]
-    fedora_pkgs = ["portaudio-devel", "libsndfile-devel", "playerctl", "pulseaudio-utils"]
-    arch_pkgs   = ["portaudio", "libsndfile", "playerctl", "libpulse"]
+    # wmctrl/xdotool: control de ventanas (minimizar/maximizar) en X11 puro —
+    # en Wayland (Hyprland/Sway/GNOME/KDE) se usa el IPC nativo de cada uno,
+    # sin depender de estos paquetes.
+    ubuntu_pkgs = ["portaudio19-dev", "libsndfile1", "playerctl", "pulseaudio-utils", "wmctrl", "xdotool"]
+    fedora_pkgs = ["portaudio-devel", "libsndfile-devel", "playerctl", "pulseaudio-utils", "wmctrl", "xdotool"]
+    arch_pkgs   = ["portaudio", "libsndfile", "playerctl", "libpulse", "wmctrl", "xdotool"]
 
     if distro in ("ubuntu", "debian", "linuxmint", "pop", "elementary", "zorin"):
         run(["sudo", "apt-get", "update", "-qq"])
