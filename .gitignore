@@ -9,6 +9,7 @@ config/modes.json
 config/sites.json
 config/workspaces.json
 config/history.json
+config/notes.json
 
 # Caché de audio TTS generado
 cache/tts/*.wav

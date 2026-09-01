@@ -24,6 +24,7 @@ import core.file_actions as file_actions
 import core.keyboard_actions as keyboard_actions
 import core.mouse_actions as mouse_actions
 import core.focus_mode as focus_mode
+import core.notes_actions as notes_actions
 
 
 TOOLS = [
@@ -336,6 +337,48 @@ TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_note",
+            "description": "Guarda una nota persistente para recordar algo más allá de esta conversación (sobrevive el reinicio del asistente).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Lo que hay que recordar."},
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_notes",
+            "description": "Lista todas las notas guardadas, o las que coinciden con una búsqueda.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Texto a buscar en las notas. Vacío para listar todas."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_note",
+            "description": "Borra la nota o notas guardadas que coincidan con un texto.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Texto que debe contener la nota a borrar."},
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -522,6 +565,27 @@ def _tool_mouse_drag(args: dict) -> str:
     return f"No reconozco la dirección '{direction}'."
 
 
+def _tool_add_note(args: dict) -> str:
+    text = args.get("text", "")
+    return "Nota guardada." if notes_actions.add_note(text) else "Necesito el texto de la nota."
+
+
+def _tool_list_notes(args: dict) -> str:
+    query = args.get("query", "")
+    notes = notes_actions.search_notes(query) if query else notes_actions.list_notes()
+    if not notes:
+        return "No hay notas guardadas." if not query else f"No encontré notas sobre '{query}'."
+    return "\n".join(f"- {n['text']}" for n in notes)
+
+
+def _tool_delete_note(args: dict) -> str:
+    query = args.get("query", "")
+    if not query:
+        return "Necesito saber qué nota borrar."
+    count = notes_actions.delete_notes(query)
+    return f"Borré {count} nota(s)." if count else f"No encontré ninguna nota con '{query}'."
+
+
 _DISPATCH = {
     "open_app": _tool_open_app,
     "close_app": _tool_close_app,
@@ -545,6 +609,9 @@ _DISPATCH = {
     "mouse_click": _tool_mouse_click,
     "mouse_scroll": _tool_mouse_scroll,
     "mouse_drag": _tool_mouse_drag,
+    "add_note": _tool_add_note,
+    "list_notes": _tool_list_notes,
+    "delete_note": _tool_delete_note,
 }
 
 
