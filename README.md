@@ -154,6 +154,7 @@ activá modo estudio y bajale al volumen
 | Web y búsqueda | `web_search`, `open_site`, `add_site` |
 | Música y multimedia | `play_music`, `media_control` (play/pause, siguiente, anterior, volumen) |
 | Teclado | `type_text`, `keyboard_shortcut` (copiar/pegar/deshacer/atajos de ventana/etc.) |
+| Mouse | `mouse_move`, `mouse_click`, `mouse_scroll`, `mouse_drag` (movimiento relativo por dirección, no coordenadas) |
 | Modos de trabajo | `activate_mode`, `list_modes` |
 | Archivos de proyecto | `read_file`, `search_in_file`, `backup_file`, `replace_in_file` |
 | Focus | `focus_status`, `focus_off` |

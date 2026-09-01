@@ -22,6 +22,7 @@ import core.mode_actions as mode_actions
 import core.site_actions as site_actions
 import core.file_actions as file_actions
 import core.keyboard_actions as keyboard_actions
+import core.mouse_actions as mouse_actions
 import core.focus_mode as focus_mode
 
 
@@ -262,6 +263,66 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "mouse_move",
+            "description": "Mueve el cursor del mouse en una dirección relativa a su posición actual (el asistente no ve la pantalla, así que no puede apuntar a coordenadas exactas).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "enum": ["arriba", "abajo", "izquierda", "derecha"]},
+                    "distance": {"type": "integer", "description": "Píxeles a mover. Default 120."},
+                },
+                "required": ["direction"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_click",
+            "description": "Hace click con el mouse en la posición actual del cursor.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "button": {"type": "string", "enum": ["izquierdo", "derecho", "medio"]},
+                    "double": {"type": "boolean", "description": "True para doble click."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_scroll",
+            "description": "Scrollea la pantalla hacia arriba o abajo.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "enum": ["arriba", "abajo"]},
+                    "amount": {"type": "integer", "description": "Intensidad del scroll. Default 5."},
+                },
+                "required": ["direction"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_drag",
+            "description": "Arrastra manteniendo el botón izquierdo apretado mientras mueve el mouse en una dirección (para seleccionar texto o arrastrar elementos).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "enum": ["arriba", "abajo", "izquierda", "derecha"]},
+                    "distance": {"type": "integer", "description": "Píxeles a arrastrar. Default 120."},
+                },
+                "required": ["direction"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "focus_status",
             "description": "Devuelve si hay un modo focus activo y qué sitios tiene bloqueados.",
             "parameters": {"type": "object", "properties": {}},
@@ -429,6 +490,38 @@ def _tool_focus_off(args: dict) -> str:
     return "Focus desactivado." if focus_mode.deactivate(forced=True) else "No pude desactivar el focus."
 
 
+def _tool_mouse_move(args: dict) -> str:
+    direction = args.get("direction", "")
+    distance = args.get("distance", 120)
+    if mouse_actions.move(direction, distance):
+        return f"Moví el mouse hacia {direction}."
+    return f"No reconozco la dirección '{direction}'."
+
+
+def _tool_mouse_click(args: dict) -> str:
+    button = args.get("button", "izquierdo")
+    double = bool(args.get("double", False))
+    if mouse_actions.click(button, double):
+        return "Doble click hecho." if double else "Click hecho."
+    return "No pude hacer click."
+
+
+def _tool_mouse_scroll(args: dict) -> str:
+    direction = args.get("direction", "")
+    amount = args.get("amount", 5)
+    if mouse_actions.scroll(direction, amount):
+        return f"Scrolleé hacia {direction}."
+    return f"No reconozco la dirección '{direction}'."
+
+
+def _tool_mouse_drag(args: dict) -> str:
+    direction = args.get("direction", "")
+    distance = args.get("distance", 120)
+    if mouse_actions.drag(direction, distance):
+        return f"Arrastré hacia {direction}."
+    return f"No reconozco la dirección '{direction}'."
+
+
 _DISPATCH = {
     "open_app": _tool_open_app,
     "close_app": _tool_close_app,
@@ -448,6 +541,10 @@ _DISPATCH = {
     "keyboard_shortcut": _tool_keyboard_shortcut,
     "focus_status": _tool_focus_status,
     "focus_off": _tool_focus_off,
+    "mouse_move": _tool_mouse_move,
+    "mouse_click": _tool_mouse_click,
+    "mouse_scroll": _tool_mouse_scroll,
+    "mouse_drag": _tool_mouse_drag,
 }
 
 
