@@ -30,6 +30,8 @@ def get_config() -> dict:
         "language": "es",
         "startup_tts": True,
         "auto_listen_on_hotkey": True,
+        "it_worker_max_steps": 8,
+        "it_worker_model": "deepseek-v4-flash-vision-exp",
     }
 
     if not config_path.exists():

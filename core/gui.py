@@ -443,3 +443,81 @@ def set_player_status(url_or_none: str | None) -> None:
         _safe(lambda: (
             _player_bar.pack_forget() if _player_bar else None,
         ))
+
+
+def confirm_action(image_bytes: bytes, description: str,
+                    target_xy: tuple[int, int] | None = None,
+                    timeout: float = 60.0) -> bool:
+    """Muestra la captura de pantalla + la acción propuesta por
+    core/it_worker.py y bloquea hasta que el usuario responda Sí/No (o pasen
+    `timeout` segundos, que cuenta como No). Se llama desde el hilo del
+    tool, no del hilo de la GUI — por eso se agenda con _safe() y se
+    sincroniza con un Event, igual que cualquier cosa que toque widgets de
+    Tk desde otro hilo."""
+    if not _available or not _root:
+        return False
+
+    result = {"ok": False}
+    done = threading.Event()
+
+    def ask():
+        try:
+            _build_confirm_dialog(image_bytes, description, target_xy, result, done)
+        except Exception as error:
+            print(f"K.A.N.Y.E.: Error mostrando confirmación: {error}")
+            done.set()
+
+    _safe(ask)
+    done.wait(timeout=timeout)
+    return result["ok"]
+
+
+def _build_confirm_dialog(image_bytes: bytes, description: str,
+                           target_xy: tuple[int, int] | None,
+                           result: dict, done: threading.Event) -> None:
+    import io
+    from PIL import Image, ImageTk
+
+    top = tk.Toplevel(_root)
+    top.title("K.A.N.Y.E. — Confirmar acción")
+    top.configure(bg=theme.VOID)
+    top.attributes("-topmost", True)
+
+    img = Image.open(io.BytesIO(image_bytes))
+    max_w, max_h = 900, 600
+    scale = min(max_w / img.width, max_h / img.height, 1.0)
+    disp_w, disp_h = max(1, int(img.width * scale)), max(1, int(img.height * scale))
+    photo = ImageTk.PhotoImage(img.resize((disp_w, disp_h)))
+
+    canvas = tk.Canvas(top, width=disp_w, height=disp_h, bg=theme.VOID, highlightthickness=0)
+    canvas.pack(padx=12, pady=(12, 6))
+    canvas.create_image(0, 0, anchor="nw", image=photo)
+    canvas.image = photo  # evitar que el GC se lo lleve antes de tiempo
+
+    if target_xy:
+        tx, ty = target_xy[0] * scale, target_xy[1] * scale
+        r = 10
+        canvas.create_oval(tx - r, ty - r, tx + r, ty + r, outline=theme.DANGER, width=3)
+
+    tk.Label(top, text=description, bg=theme.VOID, fg=theme.TEXT,
+             font=theme.mono_font(10), wraplength=disp_w, justify="left"
+             ).pack(padx=12, pady=(0, 12), fill=tk.X)
+
+    btn_row = tk.Frame(top, bg=theme.VOID)
+    btn_row.pack(pady=(0, 16))
+
+    def respond(ok: bool):
+        result["ok"] = ok
+        done.set()
+        top.destroy()
+
+    tk.Button(btn_row, text="SÍ", command=lambda: respond(True),
+              bg=theme.ACCENT, fg=theme.ON_ACCENT, font=theme.display_font(12),
+              relief=tk.FLAT, padx=24, pady=8, cursor="hand2"
+              ).pack(side=tk.LEFT, padx=(0, 8))
+    tk.Button(btn_row, text="NO", command=lambda: respond(False),
+              bg=theme.INK2, fg=theme.TEXT, font=theme.display_font(12),
+              relief=tk.FLAT, padx=24, pady=8, cursor="hand2"
+              ).pack(side=tk.LEFT)
+
+    top.protocol("WM_DELETE_WINDOW", lambda: respond(False))

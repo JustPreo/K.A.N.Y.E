@@ -26,6 +26,7 @@ import core.mouse_actions as mouse_actions
 import core.focus_mode as focus_mode
 import core.notes_actions as notes_actions
 import core.window_actions as window_actions
+import core.it_worker as it_worker
 
 
 TOOLS = [
@@ -341,6 +342,26 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "start_it_help",
+            "description": (
+                "Activa el modo de ayuda remota: mira la pantalla y ejecuta acciones paso a paso "
+                "(con confirmación del usuario en cada una) para resolver un problema visual o "
+                "repetitivo, tipo soporte técnico remoto. Usalo SOLO cuando el usuario pida "
+                "explícitamente ayuda con algo que ve en pantalla — no para tareas normales que ya "
+                "cubren las otras herramientas."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "problem": {"type": "string", "description": "Qué hay que resolver mirando la pantalla."},
+                },
+                "required": ["problem"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "add_note",
             "description": "Guarda una nota persistente para recordar algo más allá de esta conversación (sobrevive el reinicio del asistente).",
             "parameters": {
@@ -582,6 +603,11 @@ def _tool_mouse_drag(args: dict) -> str:
     return f"No reconozco la dirección '{direction}'."
 
 
+def _tool_start_it_help(args: dict) -> str:
+    problem = args.get("problem", "")
+    return it_worker.run(problem)
+
+
 def _tool_add_note(args: dict) -> str:
     text = args.get("text", "")
     return "Nota guardada." if notes_actions.add_note(text) else "Necesito el texto de la nota."
@@ -634,6 +660,7 @@ _DISPATCH = {
     "mouse_click": _tool_mouse_click,
     "mouse_scroll": _tool_mouse_scroll,
     "mouse_drag": _tool_mouse_drag,
+    "start_it_help": _tool_start_it_help,
     "minimize_window": _tool_minimize_window,
     "toggle_maximize_window": _tool_toggle_maximize_window,
     "add_note": _tool_add_note,

@@ -36,6 +36,28 @@ def move(direction: str, distance: int = 120) -> bool:
         return False
 
 
+def move_to(x: int, y: int) -> bool:
+    """Mueve el cursor a coordenadas absolutas. A diferencia de move(), no
+    la usa el agente de texto normal (no ve la pantalla) — es para
+    core/it_worker.py, que sí tiene un screenshot de referencia."""
+    try:
+        pyautogui.moveTo(x, y, duration=0.15)
+        return True
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error moviendo el mouse a ({x}, {y}): {error}")
+        return False
+
+
+def click_at(x: int, y: int, button: str = "left") -> bool:
+    btn = _BUTTONS.get(button.lower().strip(), "left")
+    try:
+        pyautogui.click(x, y, button=btn)
+        return True
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error haciendo click en ({x}, {y}): {error}")
+        return False
+
+
 def click(button: str = "left", double: bool = False) -> bool:
     btn = _BUTTONS.get(button.lower().strip(), "left")
     try:

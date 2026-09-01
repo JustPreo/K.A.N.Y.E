@@ -124,6 +124,12 @@ def _build_sections(voice_models: list[str]) -> list[tuple[str, list[tuple]]]:
              ["deepseek-chat", "deepseek-reasoner"], "deepseek-chat"),
             ("deepseek_api_key", "DeepSeek API key", "password", None, ""),
         ]),
+        ("AYUDA REMOTA", [
+            ("it_worker_model", "Modelo de visión (DeepSeek)", "combo_edit",
+             ["deepseek-v4-flash-vision-exp"], "deepseek-v4-flash-vision-exp"),
+            ("it_worker_max_steps", "Máx. pasos por sesión", "spin",
+             (3, 15, 1), 8),
+        ]),
     ]
 
 

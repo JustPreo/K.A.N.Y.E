@@ -86,9 +86,12 @@ def step_system_deps_linux():
     # wmctrl/xdotool: control de ventanas (minimizar/maximizar) en X11 puro —
     # en Wayland (Hyprland/Sway/GNOME/KDE) se usa el IPC nativo de cada uno,
     # sin depender de estos paquetes.
-    ubuntu_pkgs = ["portaudio19-dev", "libsndfile1", "playerctl", "pulseaudio-utils", "wmctrl", "xdotool"]
-    fedora_pkgs = ["portaudio-devel", "libsndfile-devel", "playerctl", "pulseaudio-utils", "wmctrl", "xdotool"]
-    arch_pkgs   = ["portaudio", "libsndfile", "playerctl", "libpulse", "wmctrl", "xdotool"]
+    # grim: captura de pantalla para el modo "ayuda remota" en Wayland — solo
+    # funciona en compositores wlroots (Hyprland/Sway); en X11 se usa
+    # pyautogui directamente, sin depender de este paquete.
+    ubuntu_pkgs = ["portaudio19-dev", "libsndfile1", "playerctl", "pulseaudio-utils", "wmctrl", "xdotool", "grim"]
+    fedora_pkgs = ["portaudio-devel", "libsndfile-devel", "playerctl", "pulseaudio-utils", "wmctrl", "xdotool", "grim"]
+    arch_pkgs   = ["portaudio", "libsndfile", "playerctl", "libpulse", "wmctrl", "xdotool", "grim"]
 
     if distro in ("ubuntu", "debian", "linuxmint", "pop", "elementary", "zorin"):
         run(["sudo", "apt-get", "update", "-qq"])
@@ -234,7 +237,14 @@ def step_post_install_notes():
         "\n  Archivos personales (no están en git, son tuyos):\n"
         "    config/modes.json       → tus modos de trabajo\n"
         "    config/sites.json       → tus sitios guardados\n"
-        "    config/config.local.json → tus overrides de config"
+        "    config/config.local.json → tus overrides de config\n"
+        "\n  OPCIONAL — Modo 'ayuda remota' (experimental):\n"
+        "  Deja que el asistente mire la pantalla y ejecute acciones paso a\n"
+        "  paso (con tu confirmación en cada una) para resolver algo visual.\n"
+        "  Necesita deepseek_api_key configurada en Configuración > Agente —\n"
+        "  usa un modelo de visión de DeepSeek, no corre local.\n"
+        "  En Wayland solo funciona en compositores wlroots (Hyprland/Sway) —\n"
+        "  GNOME/KDE Wayland todavía no están soportados para esto."
     )
 
 
