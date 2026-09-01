@@ -1,38 +1,51 @@
 # Próximos pasos — K.A.N.Y.E.
 
-Estado al momento de escribir esto: loop agéntico (`core/agent.py` +
-`core/tools.py`) y rediseño de GUI mono (`core/theme.py`) ya están en
-`main`, pusheados. Tools incluyen control de mouse (`mouse_move/click/
-scroll/drag`). Todo probado con mocks, **no probado todavía contra un
-modelo real corriendo**.
+Estado al momento de escribir esto: puntos 1 y 2 de este plan ya están
+resueltos y pusheados a `main`. Queda el punto 3.
 
-## 1. Probar el loop agéntico con un modelo real (primero)
+## 1. Probar el loop agéntico con un modelo real — ✅ hecho
 
-Reiniciar K.A.N.Y.E. (`python3 main.py` o el lanzador que uses) y probar
-en vivo, no con mocks:
-- Un comando simple: `abrí firefox`
-- Encadenado: `cerrá spotify y abrí firefox y buscá el clima`
-- Algo con mouse: `movete el mouse a la derecha y hacé click`
-- Chat puro sin tools: una pregunta de opinión
-- Ver si `phi4-mini` (default de `chat_model`) sostiene bien el
-  tool-calling multi-paso, o si hace falta subir a `qwen2.5:7b` (ya
-  documentado como alternativa en el README) o usar DeepSeek como backend
-  principal si hay API key.
+Probado en vivo (no mocks) con `phi4-mini` (default de `chat_model`):
+comando simple (`abrí firefox`), encadenado (`abrí brave y buscá el
+clima`, 2 tools en el mismo turno), mouse (`movete el mouse a la derecha
+y hacé click`), y chat puro sin tools. Los 4 casos funcionaron bien —
+`phi4-mini` sostiene tool-calling multi-paso sin necesidad de subir a
+`qwen2.5:7b` ni cambiar a DeepSeek.
 
-## 2. Más tools candidatas (a definir cuáles priorizar)
+De paso se encontró y arregló un bug real: `open_app` no veía apps
+instaladas vía snap (Firefox en Ubuntu/derivados) porque
+`LINUX_DESKTOP_DIRS` en `core/app_resolver.py` no incluía
+`/var/lib/snapd/desktop/applications` (commit `a904e1f`).
 
-- **Screenshot / captura de pantalla**: le daría al agente algo de
-  "visión" — hoy el mouse es ciego (solo direcciones relativas, no puede
-  apuntar a un botón específico en pantalla). Requeriría además mandarle
-  la imagen a un modelo con visión (DeepSeek/Ollama con soporte
-  multimodal), no es trivial — evaluar si vale la pena.
-- **Control de ventanas**: minimizar/maximizar/cambiar de escritorio,
-  aparte de lo que ya hace `close_all_desktop_apps` en `process_actions.py`.
-- **Notas/memoria persistente**: algo tipo "recordá esto" que sobreviva
-  fuera del historial de chat (`config/history.json` ya se trunca a los
-  últimos 24 mensajes).
+## 2. Tools candidatas — evaluadas, 2 de 3 implementadas
 
-## 3. Pulir la GUI mono una vez se vea corriendo de verdad
+- **Notas persistentes** — ✅ implementado (`core/notes_actions.py`,
+  commit `ace82c4`). `add_note`/`list_notes`/`delete_note`, guardadas en
+  `config/notes.json` (gitignored). Resuelve que el historial se trunca a
+  24 mensajes — "recordá que..." ya no se pierde. Probado en vivo.
+- **Control de ventanas** — ✅ implementado (`core/window_actions.py`,
+  commit `4763ba6`). `minimize_window`/`toggle_maximize_window` sobre la
+  ventana activa, con dispatcher por compositor (Hyprland/Sway/GNOME/KDE
+  vía IPC nativo, fallback wmctrl/xdotool en X11, Windows y macOS).
+  `wmctrl`/`xdotool` sumados a `install.py`. Probado en vivo sobre
+  Hyprland. No se implementó "cambiar de escritorio" (quedó fuera de
+  alcance, no evaluado).
+- **Screenshot / visión** — ⏸ diferido, no implementado. Es la tool con
+  mayor costo/riesgo: necesita un modelo de visión aparte corriendo junto
+  a whisper+piper+chat model (presión de RAM real en laptops de 16GB o
+  menos), y captura de pantalla en Wayland no es trivial sin portales.
+  Es también lo único que resolvería de verdad la limitación de
+  `mouse_click`/`mouse_drag` (ver nota abajo) — no vale la pena antes de
+  decidir si se justifica ese costo.
+
+**Nota sobre el mouse:** se discutió que `mouse_click`/`mouse_drag` son
+casi decorativos sin visión — el agente no puede apuntar a un botón
+específico, solo mover/clickear a ciegas por direcciones relativas.
+`mouse_scroll` sí es útil de por sí. Se decidió dejarlos como están (no
+estorban, y sirven para casos gruesos tipo cerrar notificaciones en
+posiciones predecibles) — se revisita si algún día se resuelve visión.
+
+## 3. Pulir la GUI mono una vez se vea corriendo de verdad — próximo paso
 
 El rediseño (blanco/negro, sin dorado) se verificó con capturas de un
 proceso de prueba, pero no en el uso real día a día. Cosas a revisar con
@@ -41,7 +54,8 @@ ojo fresco:
   — puede que necesiten más contraste o un tono ligeramente distinto de
   `theme.ACCENT` (`#FFFFFF`) para no verse "plano".
 - Confirmar que Win+C ahora minimiza en vez de matar el proceso (fix ya
-  pusheado, sin probar en vivo).
+  pusheado, sin probar en vivo — esto era específico de Windows, no se
+  pudo probar en esta sesión sobre Linux/Hyprland).
 
 ---
 
@@ -49,4 +63,7 @@ Regla para retomar: pushear cada cambio terminado a `origin/main`, no
 acumular (ver memoria `feedback-push-frequently`). Si pasó tiempo desde
 la última sesión, correr `git fetch && git log main..origin/main` antes
 de asumir que el local está al día (ver memoria `project-kanye`, sección
-"Incidente de sync con git").
+"Incidente de sync con git"). Dos checkouts del repo en esta máquina:
+`/home/aaron/Documents/K.A.N.Y.E` (working dir de sesión) y
+`/home/aaron/K.A.N.Y.E` (tiene el `.venv` con las deps instaladas) — hay
+que mantener ambos sincronizados.
