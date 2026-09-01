@@ -1,15 +1,17 @@
 import threading
 
+from core import theme
+
 _icon = None
 _available = True
 
-STATE_COLORS = {
-    "idle":       (120, 120, 120),
-    "listening":  (50,  200, 80),
-    "processing": (220, 170, 0),
-    "speaking":   (60,  130, 220),
-    "error":      (200, 50,  50),
-}
+
+def _hex_to_rgb(h: str) -> tuple[int, int, int]:
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+STATE_COLORS = {state: _hex_to_rgb(color) for state, color in theme.STATE_COLORS.items()}
 
 STATE_LABELS = {
     "idle":       "K.A.N.Y.E. - Esperando",

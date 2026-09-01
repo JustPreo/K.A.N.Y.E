@@ -8,24 +8,36 @@ from tkinter import ttk, messagebox, simpledialog
 from pathlib import Path
 
 from core.config_loader import PROJECT_ROOT
+from core import theme
 
 CONFIG_LOCAL = PROJECT_ROOT / "config" / "config.local.json"
 MODES_FILE   = PROJECT_ROOT / "config" / "modes.json"
 SITES_FILE   = PROJECT_ROOT / "config" / "sites.json"
 
-# ── Paleta ────────────────────────────────────────────────────────────────────
-BG    = "#111111"
-BG2   = "#1C1C1C"
-BG3   = "#252525"
-FG    = "#E8E8E8"
-FG2   = "#AAAAAA"
-ACC   = "#C8A000"
-SEL   = "#2A3A2A"
-FONT  = ("Monospace", 10)
-FONTS = ("Monospace", 9)
-FONTB = ("Monospace", 11, "bold")
+# ── Paleta (core/theme.py) ─────────────────────────────────────────────────────
+BG    = theme.VOID
+BG2   = theme.INK
+BG3   = theme.INK2
+FG    = theme.TEXT
+FG2   = theme.TEXT_DIM
+ACC   = theme.GOLD
+SEL   = theme.GOLD_DIM
+LINE  = theme.LINE
 
 _win = None
+
+# Se resuelven en open_settings() una vez que existe un root Tk — la
+# resolución de familias de fuente (core/theme.py) necesita uno.
+FONT  = ("TkFixedFont", 10)
+FONTS = ("TkFixedFont", 9)
+FONTB = ("TkDefaultFont", 13, "bold")
+
+
+def _resolve_fonts() -> None:
+    global FONT, FONTS, FONTB
+    FONT  = theme.mono_font(10)
+    FONTS = theme.mono_font(9)
+    FONTB = theme.display_font(13, "bold")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -53,7 +65,7 @@ def _style_widget(w, bg=BG2, fg=FG):
     try:
         w.configure(bg=bg, fg=fg, font=FONT,
                     insertbackground=FG, relief=tk.FLAT,
-                    highlightthickness=1, highlightbackground="#333")
+                    highlightthickness=1, highlightbackground=LINE)
     except Exception:
         pass
 
@@ -62,7 +74,7 @@ def _btn(parent, text, cmd, color=ACC):
     return tk.Button(
         parent, text=text, command=cmd,
         bg=BG3, fg=color, font=FONTS,
-        activebackground="#333", activeforeground=color,
+        activebackground=LINE, activeforeground=color,
         relief=tk.FLAT, padx=10, pady=4, cursor="hand2",
     )
 
@@ -101,14 +113,13 @@ def _build_sections(voice_models: list[str]) -> list[tuple[str, list[tuple]]]:
             ("stt_silence_threshold", "Sensibilidad del micrófono (umbral)", "spin",
              (100, 5000, 100), 500),
         ]),
-        ("🤖  IA / Chat", [
-            ("use_llm_classifier", "Usar clasificador de intención con IA", "check", None, True),
-            ("chat_backend", "Backend de chat/intención", "combo",
+        ("🤖  Agente", [
+            ("chat_backend", "Backend del agente", "combo",
              ["ollama", "deepseek"], "ollama"),
-            ("chat_model", "Modelo de chat (Ollama)", "combo_edit",
-             ["phi4-mini", "qwen2.5:1.5b", "llama3.2", "mistral", "gemma2"], "phi4-mini"),
-            ("intent_model", "Modelo de intención (Ollama)", "combo_edit",
-             ["qwen2.5:1.5b", "phi4-mini", "llama3.2:1b"], "qwen2.5:1.5b"),
+            ("chat_model", "Modelo del agente (Ollama)", "combo_edit",
+             ["phi4-mini", "qwen2.5:7b", "llama3.2", "mistral", "gemma2"], "phi4-mini"),
+            ("max_tool_iterations", "Máx. acciones encadenadas", "spin",
+             (1, 15, 1), 6),
             ("deepseek_model", "Modelo DeepSeek", "combo_edit",
              ["deepseek-chat", "deepseek-reasoner"], "deepseek-chat"),
             ("deepseek_api_key", "DeepSeek API key", "password", None, ""),
@@ -152,7 +163,7 @@ def _build_config_tab(nb: ttk.Notebook):
         tk.Label(inner, text=section_title, bg=BG, fg=ACC, font=FONTB,
                  anchor="w").grid(row=row, columnspan=2, sticky="w", padx=14, pady=(4, 2))
         row += 1
-        tk.Frame(inner, bg="#333", height=1).grid(
+        tk.Frame(inner, bg=LINE, height=1).grid(
             row=row, columnspan=2, sticky="ew", padx=14, pady=(0, 6))
         row += 1
 
@@ -199,7 +210,7 @@ def _build_config_tab(nb: ttk.Notebook):
                     entry.configure(show="" if entry.cget("show") == "•" else "•")
 
                 tk.Button(pw_frame, text="👁", command=toggle_show,
-                          bg=BG3, fg=FG2, activebackground="#333",
+                          bg=BG3, fg=FG2, activebackground=LINE,
                           relief=tk.FLAT, cursor="hand2", padx=6
                           ).pack(side=tk.LEFT, padx=(4, 0))
                 widgets[key] = ("str", var)
@@ -263,14 +274,14 @@ def _build_modes_tab(nb: ttk.Notebook):
         if multiline:
             t = tk.Text(parent, height=3, width=36, bg=BG2, fg=FG, font=FONT,
                         insertbackground=FG, relief=tk.FLAT,
-                        highlightthickness=1, highlightbackground="#333")
+                        highlightthickness=1, highlightbackground=LINE)
             t.grid(row=row, column=1, sticky="ew", pady=(8,0), padx=4)
             fields[key] = ("text", t)
         else:
             var = tk.StringVar()
             e = tk.Entry(parent, textvariable=var, bg=BG2, fg=FG, font=FONT,
                          insertbackground=FG, relief=tk.FLAT,
-                         highlightthickness=1, highlightbackground="#333")
+                         highlightthickness=1, highlightbackground=LINE)
             e.grid(row=row, column=1, sticky="ew", pady=(8,0), padx=4)
             fields[key] = ("entry", var)
 
@@ -307,13 +318,13 @@ def _build_modes_tab(nb: ttk.Notebook):
              font=FONTS, anchor="w").grid(row=8, column=0, sticky="w", padx=4, pady=(4,0))
     e_dur = tk.Entry(edit_frame, textvariable=focus_dur, width=8, bg=BG2, fg=FG,
                      font=FONT, insertbackground=FG, relief=tk.FLAT,
-                     highlightthickness=1, highlightbackground="#333")
+                     highlightthickness=1, highlightbackground=LINE)
     e_dur.grid(row=8, column=1, sticky="w", padx=4, pady=(4,0))
     focus_vars["duration"] = focus_dur
 
     focus_sites = tk.Text(edit_frame, height=3, width=36, bg=BG2, fg=FG, font=FONT,
                           insertbackground=FG, relief=tk.FLAT,
-                          highlightthickness=1, highlightbackground="#333")
+                          highlightthickness=1, highlightbackground=LINE)
     tk.Label(edit_frame, text="Sitios bloqueados\n(uno por línea)", bg=BG, fg=FG2,
              font=FONTS, anchor="nw").grid(row=9, column=0, sticky="nw", padx=4, pady=(4,0))
     focus_sites.grid(row=9, column=1, sticky="ew", padx=4, pady=(4,0))
@@ -418,8 +429,8 @@ def _build_modes_tab(nb: ttk.Notebook):
     btn_row = tk.Frame(edit_frame, bg=BG)
     btn_row.grid(row=10, columnspan=2, pady=10, padx=4, sticky="ew")
     _btn(btn_row, "Guardar",  save_mode, ACC).pack(side=tk.LEFT, padx=(0,6))
-    _btn(btn_row, "+ Nuevo",  new_mode,  "#50C878").pack(side=tk.LEFT, padx=(0,6))
-    _btn(btn_row, "Eliminar", delete_mode, "#C85050").pack(side=tk.LEFT)
+    _btn(btn_row, "+ Nuevo",  new_mode,  theme.STATE_COLORS["listening"]).pack(side=tk.LEFT, padx=(0,6))
+    _btn(btn_row, "Eliminar", delete_mode, theme.DANGER).pack(side=tk.LEFT)
 
     refresh_list()
     return frame
@@ -466,14 +477,14 @@ def _build_sites_tab(nb: ttk.Notebook):
     name_var = tk.StringVar()
     name_e = tk.Entry(edit_row, textvariable=name_var, width=18, bg=BG2, fg=FG,
                       font=FONT, insertbackground=FG, relief=tk.FLAT,
-                      highlightthickness=1, highlightbackground="#333")
+                      highlightthickness=1, highlightbackground=LINE)
     name_e.pack(side=tk.LEFT, padx=(4,12))
 
     tk.Label(edit_row, text="URL:", bg=BG, fg=FG2, font=FONTS).pack(side=tk.LEFT)
     url_var = tk.StringVar()
     url_e = tk.Entry(edit_row, textvariable=url_var, width=36, bg=BG2, fg=FG,
                      font=FONT, insertbackground=FG, relief=tk.FLAT,
-                     highlightthickness=1, highlightbackground="#333")
+                     highlightthickness=1, highlightbackground=LINE)
     url_e.pack(side=tk.LEFT, padx=(4,0), fill=tk.X, expand=True)
 
     def refresh_tree():
@@ -519,7 +530,7 @@ def _build_sites_tab(nb: ttk.Notebook):
     btn_row = tk.Frame(frame, bg=BG)
     btn_row.pack(fill=tk.X, padx=8, pady=(0,8))
     _btn(btn_row, "Guardar / Actualizar", save_site, ACC).pack(side=tk.LEFT, padx=(0,6))
-    _btn(btn_row, "Eliminar", delete_site, "#C85050").pack(side=tk.LEFT)
+    _btn(btn_row, "Eliminar", delete_site, theme.DANGER).pack(side=tk.LEFT)
 
     refresh_tree()
     return frame
@@ -534,19 +545,22 @@ def open_settings(parent=None):
         return
 
     win = tk.Toplevel(parent) if parent else tk.Tk()
+    _resolve_fonts()
     win.title("K.A.N.Y.E. — Configuración")
     win.geometry("640x560")
     win.configure(bg=BG)
     win.resizable(True, True)
 
-    tk.Label(win, text="Configuración", bg=BG, fg=ACC, font=FONTB).pack(
-        pady=(12, 4))
+    title_row = tk.Frame(win, bg=BG)
+    title_row.pack(fill=tk.X, padx=16, pady=(16, 4))
+    tk.Label(title_row, text="C·O·N·F·I·G·U·R·A·C·I·Ó·N", bg=BG, fg=ACC, font=FONTB).pack(side=tk.LEFT)
+    tk.Frame(win, bg=ACC, height=2).pack(fill=tk.X, padx=16, pady=(0, 8))
 
     style = ttk.Style(win)
     style.theme_use("clam")
     style.configure("Kanye.TNotebook",       background=BG,  borderwidth=0)
     style.configure("Kanye.TNotebook.Tab",   background=BG3, foreground=FG2,
-                    padding=(12,6), font=FONTS)
+                    padding=(14,7), font=FONTS)
     style.map("Kanye.TNotebook.Tab",
               background=[("selected", BG2)],
               foreground=[("selected", ACC)])
@@ -554,7 +568,7 @@ def open_settings(parent=None):
     # Combobox / Spinbox oscuros, para que no desentonen con el resto.
     style.configure("TCombobox",
                      fieldbackground=BG2, background=BG2, foreground=FG,
-                     arrowcolor=ACC, bordercolor="#333", lightcolor=BG2, darkcolor=BG2)
+                     arrowcolor=ACC, bordercolor=LINE, lightcolor=BG2, darkcolor=BG2)
     style.map("TCombobox",
               fieldbackground=[("readonly", BG2), ("disabled", BG2)],
               foreground=[("readonly", FG), ("disabled", FG2)],
@@ -567,7 +581,7 @@ def open_settings(parent=None):
 
     style.configure("TSpinbox",
                      fieldbackground=BG2, background=BG2, foreground=FG,
-                     arrowcolor=ACC, bordercolor="#333", lightcolor=BG2, darkcolor=BG2)
+                     arrowcolor=ACC, bordercolor=LINE, lightcolor=BG2, darkcolor=BG2)
     style.map("TSpinbox", fieldbackground=[("readonly", BG2)])
 
     nb = ttk.Notebook(win, style="Kanye.TNotebook")

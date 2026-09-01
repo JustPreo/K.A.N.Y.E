@@ -1,21 +1,27 @@
 """
 Ventana principal de K.A.N.Y.E.
 Cross-platform (tkinter, incluido en Python).
+
+Dirección visual: brutalista/editorial — negro puro, un acento dorado,
+bloques de color en vez de degradados, tipografía condensada para
+titulares y monoespaciada para el cuerpo. Ver core/theme.py.
 """
 import threading
 import time
 import tkinter as tk
 from tkinter import scrolledtext
 
+from core import theme
+
 _suppress_close = False   # True mientras KANYE cierra otras apps
 _root: tk.Tk | None = None
 _chat_box = None
-_status_dot = None
-_status_label = None
-_mode_label = None
+_status_chip = None
+_mode_value = None
 _stats_label = None
 _player_label = None
 _player_bar = None
+_player_anchor = None     # widget antes del cual se inserta la player bar al mostrarla
 _kb_frame = None
 _kb_entry = None
 _kb_active = False
@@ -24,36 +30,21 @@ _start_hidden = True
 _kb_callback = None       # fn(text) → llamado al enviar comando por teclado
 _available = False
 
-STATE_COLORS = {
-    "idle":       "#787878",
-    "listening":  "#32C850",
-    "processing": "#DCA800",
-    "speaking":   "#3C82DC",
-    "error":      "#C83232",
-}
 
-STATE_TEXT = {
-    "idle":       "Esperando",
-    "listening":  "Escuchando...",
-    "processing": "Procesando...",
-    "speaking":   "Hablando...",
-    "error":      "Error",
-}
-
-BG       = "#111111"
-BG2      = "#1C1C1C"
-BG3      = "#252525"
-FG       = "#E8E8E8"
-FG_DIM   = "#888888"
-ACCENT   = "#C8A000"
-FONT     = ("Consolas", 10) if __import__("sys").platform == "win32" else ("Monospace", 10)
-FONT_SM  = (FONT[0], 9)
-FONT_LG  = (FONT[0], 13, "bold")
+def _bar(parent, accent: str) -> tk.Frame:
+    """Franja horizontal de metadatos: borde izquierdo de 3px de color +
+    fondo INK2, el lenguaje visual repetido para modo/reproductor/stats."""
+    row = tk.Frame(parent, bg=theme.INK2)
+    tk.Frame(row, bg=accent, width=3).pack(side=tk.LEFT, fill=tk.Y)
+    inner = tk.Frame(row, bg=theme.INK2, padx=12, pady=5)
+    inner.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    return row, inner
 
 
 def _build_window():
-    global _root, _chat_box, _status_dot, _status_label
-    global _mode_label, _stats_label, _available
+    global _root, _chat_box, _status_chip
+    global _mode_value, _stats_label, _available
+    global _player_label, _player_bar, _player_anchor, _kb_frame, _kb_entry
 
     try:
         root = tk.Tk()
@@ -61,157 +52,187 @@ def _build_window():
         return
 
     root.title("K.A.N.Y.E.")
-    root.geometry("380x560")
+    root.geometry("400x600")
+    root.minsize(340, 460)
     root.resizable(True, True)
-    root.configure(bg=BG)
-    root.attributes("-topmost", False)
+    root.configure(bg=theme.VOID)
+
+    FONT_WORDMARK = theme.display_font(20, "bold")
+    FONT_CAPTION  = theme.mono_font(8)
+    FONT_CHIP     = theme.mono_font(9, "bold")
+    FONT_BODY     = theme.mono_font(10)
+    FONT_BODY_B   = theme.mono_font(10, "bold")
+    FONT_LABEL    = theme.mono_font(8, "bold")
+    FONT_CTA      = theme.display_font(13, "bold")
+    FONT_GHOST    = theme.mono_font(9, "bold")
 
     # ── Header ────────────────────────────────────────────────────────────────
-    header = tk.Frame(root, bg=BG2, pady=8, padx=12)
-    header.pack(fill=tk.X)
+    header = tk.Frame(root, bg=theme.VOID, padx=14)
+    header.pack(fill=tk.X, pady=(14, 10))
 
-    tk.Label(header, text="K.A.N.Y.E.", font=FONT_LG, bg=BG2, fg=ACCENT).pack(side=tk.LEFT)
+    top_row = tk.Frame(header, bg=theme.VOID)
+    top_row.pack(fill=tk.X)
 
-    right = tk.Frame(header, bg=BG2)
-    right.pack(side=tk.RIGHT)
+    tk.Label(
+        top_row, text="K·A·N·Y·E", font=FONT_WORDMARK,
+        bg=theme.VOID, fg=theme.GOLD,
+    ).pack(side=tk.LEFT)
 
-    dot = tk.Label(right, text="●", font=(FONT[0], 14), bg=BG2, fg=STATE_COLORS["idle"])
-    dot.pack(side=tk.LEFT, padx=(0, 4))
+    chip = tk.Label(
+        top_row, text=" ESPERANDO ", font=FONT_CHIP,
+        bg=theme.STATE_COLORS["idle"], fg=theme.VOID,
+        padx=6, pady=2,
+    )
+    chip.pack(side=tk.RIGHT, anchor="e")
 
-    slabel = tk.Label(right, text="Esperando", font=FONT_SM, bg=BG2, fg=FG_DIM)
-    slabel.pack(side=tk.LEFT)
+    tk.Label(
+        header,
+        text="ASISTENTE LOCAL · 100% OFFLINE",
+        font=FONT_CAPTION, bg=theme.VOID, fg=theme.TEXT_DIM,
+        anchor="w", wraplength=360, justify=tk.LEFT,
+    ).pack(fill=tk.X, pady=(4, 0))
+
+    tk.Frame(root, bg=theme.GOLD, height=2).pack(fill=tk.X)
 
     # ── Modo activo ───────────────────────────────────────────────────────────
-    mode_bar = tk.Frame(root, bg=BG3, pady=4, padx=12)
-    mode_bar.pack(fill=tk.X)
+    mode_row, mode_inner = _bar(root, theme.GOLD_DIM)
+    mode_row.pack(fill=tk.X)
+    tk.Label(mode_inner, text="MODO", font=FONT_LABEL,
+             bg=theme.INK2, fg=theme.TEXT_DIM).pack(side=tk.LEFT)
+    mvalue = tk.Label(mode_inner, text="—", font=theme.mono_font(9, "bold"),
+                       bg=theme.INK2, fg=theme.GOLD, padx=8)
+    mvalue.pack(side=tk.LEFT)
 
-    mlabel = tk.Label(mode_bar, text="Modo: —", font=FONT_SM, bg=BG3, fg=FG_DIM)
-    mlabel.pack(side=tk.LEFT)
-
-    # ── Player bar ────────────────────────────────────────────────────────────
-    player_bar = tk.Frame(root, bg="#0A1A0A", pady=3, padx=12)
+    # ── Player bar (oculta hasta que hay reproducción) ─────────────────────────
+    player_row, player_inner = _bar(root, theme.STATE_COLORS["speaking"])
 
     plabel = tk.Label(
-        player_bar,
-        text="♫ Sin reproducción",
-        font=FONT_SM, bg="#0A1A0A", fg="#3A8A3A",
-        anchor="w",
+        player_inner, text="♫ SIN REPRODUCCIÓN", font=theme.mono_font(9),
+        bg=theme.INK2, fg=theme.TEXT, anchor="w",
     )
     plabel.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-    stop_btn = tk.Button(
-        player_bar,
-        text="■",
-        font=(FONT[0], 9, "bold"),
-        bg="#0A1A0A", fg="#3A8A3A",
-        activebackground="#0A1A0A", activeforeground="#60FF60",
-        relief=tk.FLAT, bd=0, padx=6,
-        cursor="hand2",
-        command=lambda: _stop_player(),
+    stop_btn = tk.Label(
+        player_inner, text="■ DETENER", font=FONT_LABEL,
+        bg=theme.INK2, fg=theme.TEXT_DIM, cursor="hand2", padx=6,
     )
     stop_btn.pack(side=tk.RIGHT)
+    stop_btn.bind("<Button-1>", lambda e: _stop_player())
+    theme.bind_hover(
+        stop_btn,
+        normal={"fg": theme.TEXT_DIM},
+        hover={"fg": theme.DANGER},
+    )
 
     # ── Chat ──────────────────────────────────────────────────────────────────
-    chat_frame = tk.Frame(root, bg=BG)
-    chat_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(8, 0))
+    chat_frame = tk.Frame(root, bg=theme.VOID)
+    chat_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(10, 0))
 
     chat = scrolledtext.ScrolledText(
         chat_frame,
-        bg=BG, fg=FG, font=FONT,
+        bg=theme.VOID, fg=theme.TEXT, font=FONT_BODY,
         relief=tk.FLAT, bd=0,
         wrap=tk.WORD,
         state=tk.DISABLED,
-        insertbackground=FG,
+        insertbackground=theme.TEXT,
+        padx=2, pady=2,
     )
     chat.pack(fill=tk.BOTH, expand=True)
 
-    chat.tag_configure("user",   foreground="#A0D0FF", font=(FONT[0], 10, "bold"))
-    chat.tag_configure("kanye",  foreground=FG)
-    chat.tag_configure("system", foreground=FG_DIM, font=FONT_SM)
-    chat.tag_configure("alert",  foreground="#FFB040")
+    chat.tag_configure("user_label",  foreground=theme.STATE_COLORS["speaking"], font=FONT_BODY_B)
+    chat.tag_configure("user_body",   foreground=theme.TEXT, font=FONT_BODY)
+    chat.tag_configure("kanye_label", foreground=theme.GOLD, font=FONT_BODY_B)
+    chat.tag_configure("kanye_body",  foreground=theme.TEXT, font=FONT_BODY)
+    chat.tag_configure("system",      foreground=theme.TEXT_DIM, font=theme.mono_font(8))
+    chat.tag_configure("alert",       foreground=theme.STATE_COLORS["error"], font=FONT_BODY_B)
 
     # ── Stats ─────────────────────────────────────────────────────────────────
-    stats_bar = tk.Frame(root, bg=BG3, pady=4, padx=12)
-    stats_bar.pack(fill=tk.X)
-
-    stlabel = tk.Label(stats_bar, text="CPU --%  RAM --%  BAT --%", font=FONT_SM, bg=BG3, fg=FG_DIM)
+    stats_row, stats_inner = _bar(root, theme.TEXT_DIM)
+    stats_row.pack(fill=tk.X, pady=(10, 0))
+    stlabel = tk.Label(stats_inner, text="CPU --%  ·  RAM --%  ·  BAT --%",
+                        font=theme.mono_font(9), bg=theme.INK2, fg=theme.TEXT_DIM)
     stlabel.pack(side=tk.LEFT)
 
-    # ── Botón ─────────────────────────────────────────────────────────────────
-    btn_frame = tk.Frame(root, bg=BG, pady=8, padx=8)
+    # ── Acciones ──────────────────────────────────────────────────────────────
+    btn_frame = tk.Frame(root, bg=theme.VOID, padx=10, pady=10)
     btn_frame.pack(fill=tk.X)
 
-    btn = tk.Button(
+    btn = tk.Label(
         btn_frame,
-        text="● Hablar  (Ctrl+F9)",
-        font=(FONT[0], 11, "bold"),
-        bg="#1E3A1E", fg="#50D050",
-        activebackground="#2A502A", activeforeground="#70FF70",
-        relief=tk.FLAT, bd=0, pady=8,
-        cursor="hand2",
-        command=_on_button_click,
+        text="●  HABLAR   ·   CTRL+F9",
+        font=FONT_CTA,
+        bg=theme.GOLD, fg=theme.VOID,
+        cursor="hand2", pady=10,
     )
     btn.pack(fill=tk.X)
-
-    cfg_btn = tk.Button(
-        btn_frame,
-        text="⚙ Configuración",
-        font=(FONT[0], 9),
-        bg=BG2, fg=FG_DIM,
-        activebackground=BG3, activeforeground=FG,
-        relief=tk.FLAT, bd=0, pady=4,
-        cursor="hand2",
-        command=lambda: _open_settings(root),
+    btn.bind("<Button-1>", lambda e: _on_button_click())
+    theme.bind_hover(
+        btn,
+        normal={"bg": theme.GOLD, "fg": theme.VOID},
+        hover={"bg": theme.VOID, "fg": theme.GOLD},
     )
-    cfg_btn.pack(fill=tk.X, pady=(4, 0))
 
-    kb_toggle = tk.Button(
-        btn_frame,
-        text="⌨ Modo teclado",
-        font=(FONT[0], 9),
-        bg=BG2, fg=FG_DIM,
-        activebackground=BG3, activeforeground=FG,
-        relief=tk.FLAT, bd=0, pady=4,
-        cursor="hand2",
-        command=lambda: _toggle_keyboard_mode(kb_toggle, kb_frame),
-    )
-    kb_toggle.pack(fill=tk.X, pady=(4, 0))
+    ghost_row = tk.Frame(btn_frame, bg=theme.VOID)
+    ghost_row.pack(fill=tk.X, pady=(8, 0))
 
-    kb_frame = tk.Frame(root, bg=BG2, pady=4, padx=8)
+    def _ghost(parent, text, cmd):
+        lbl = tk.Label(
+            parent, text=text, font=FONT_GHOST,
+            bg=theme.VOID, fg=theme.TEXT_DIM,
+            highlightthickness=1, highlightbackground=theme.LINE,
+            cursor="hand2", pady=6,
+        )
+        lbl.bind("<Button-1>", lambda e: cmd())
+        theme.bind_hover(
+            lbl,
+            normal={"fg": theme.TEXT_DIM, "highlightbackground": theme.LINE},
+            hover={"fg": theme.GOLD, "highlightbackground": theme.GOLD},
+        )
+        return lbl
+
+    cfg_btn = _ghost(ghost_row, "⚙  CONFIGURACIÓN", lambda: _open_settings(root))
+    cfg_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+
+    kb_toggle = _ghost(ghost_row, "⌨  MODO TECLADO", lambda: _toggle_keyboard_mode(kb_toggle, kb_frame))
+    kb_toggle.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
+
+    kb_frame = tk.Frame(root, bg=theme.VOID, padx=10)
 
     kb_entry = tk.Entry(
         kb_frame,
-        bg=BG3, fg=FG,
-        insertbackground=FG,
-        font=FONT,
+        bg=theme.INK2, fg=theme.TEXT,
+        insertbackground=theme.GOLD,
+        font=FONT_BODY,
         relief=tk.FLAT, bd=0,
+        highlightthickness=1, highlightbackground=theme.LINE,
+        highlightcolor=theme.GOLD,
     )
-    kb_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=5, padx=(0, 6))
+    kb_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=6, padx=(0, 6))
     kb_entry.bind("<Return>", lambda e: _on_kb_send(kb_entry))
 
-    kb_send = tk.Button(
-        kb_frame,
-        text="Enviar",
-        font=FONT_SM,
-        bg=ACCENT, fg=BG,
-        activebackground="#A88000", activeforeground=BG,
-        relief=tk.FLAT, bd=0, padx=8, pady=4,
-        cursor="hand2",
-        command=lambda: _on_kb_send(kb_entry),
+    kb_send = tk.Label(
+        kb_frame, text="ENVIAR", font=FONT_GHOST,
+        bg=theme.GOLD, fg=theme.VOID, cursor="hand2", padx=10, pady=6,
+    )
+    kb_send.bind("<Button-1>", lambda e: _on_kb_send(kb_entry))
+    theme.bind_hover(
+        kb_send,
+        normal={"bg": theme.GOLD, "fg": theme.VOID},
+        hover={"bg": theme.VOID, "fg": theme.GOLD},
     )
     kb_send.pack(side=tk.RIGHT)
 
-    _root        = root
-    _chat_box    = chat
-    _status_dot  = dot
-    _status_label = slabel
-    _mode_label  = mlabel
-    _stats_label = stlabel
-    _player_label = plabel
-    _player_bar  = player_bar
-    _kb_frame    = kb_frame
-    _kb_entry    = kb_entry
-    _available   = True
+    _root          = root
+    _chat_box      = chat
+    _status_chip   = chip
+    _mode_value    = mvalue
+    _stats_label   = stlabel
+    _player_label  = plabel
+    _player_bar    = player_row
+    _player_anchor = chat_frame
+    _kb_frame      = kb_frame
+    _kb_entry      = kb_entry
+    _available     = True
 
     # Stats loop
     threading.Thread(target=_stats_loop, daemon=True).start()
@@ -260,13 +281,13 @@ def _toggle_keyboard_mode(btn, frame) -> None:
     global _kb_active
     _kb_active = not _kb_active
     if _kb_active:
-        frame.pack(fill=tk.X, padx=8, pady=(0, 4))
-        btn.config(fg=ACCENT)
+        frame.pack(fill=tk.X, pady=(0, 6))
+        btn.config(fg=theme.GOLD, highlightbackground=theme.GOLD)
         if _kb_entry:
             _kb_entry.focus_set()
     else:
         frame.pack_forget()
-        btn.config(fg=FG_DIM)
+        btn.config(fg=theme.TEXT_DIM, highlightbackground=theme.LINE)
 
 
 def _on_kb_send(entry) -> None:
@@ -288,7 +309,7 @@ def _stats_loop():
             bat = psutil.sensors_battery()
             bat_str = f"{int(bat.percent)}%" if bat else "N/A"
             plug = " ⚡" if bat and bat.power_plugged else ""
-            text = f"CPU {cpu:.0f}%  RAM {ram:.0f}%  BAT {bat_str}{plug}"
+            text = f"CPU {cpu:.0f}%  ·  RAM {ram:.0f}%  ·  BAT {bat_str}{plug}"
             _safe(lambda t=text: _stats_label.config(text=t))
         except Exception:
             pass
@@ -322,33 +343,42 @@ def start(on_trigger=None, start_hidden: bool = True) -> bool:
 
 
 def set_state(state: str) -> None:
-    color = STATE_COLORS.get(state, STATE_COLORS["idle"])
-    text  = STATE_TEXT.get(state, state)
-    _safe(lambda c=color, t=text: (
-        _status_dot.config(fg=c),
-        _status_label.config(text=t),
-    ))
+    color = theme.STATE_COLORS.get(state, theme.STATE_COLORS["idle"])
+    text  = theme.STATE_TEXT.get(state, state.upper())
+    _safe(lambda c=color, t=text: _status_chip.config(bg=c, text=f" {t} "))
 
 
 def set_mode(mode: str) -> None:
-    label = f"Modo: {mode}" if mode else "Modo: —"
-    _safe(lambda l=label: _mode_label.config(text=l))
+    label = mode if mode else "—"
+    _safe(lambda l=label: _mode_value.config(text=l))
 
 
 def add_user(text: str) -> None:
-    _append(f"Tú: {text}\n", "user")
+    _append_turn("TÚ", text, "user_label", "user_body")
 
 
 def add_kanye(text: str) -> None:
-    _append(f"K.A.N.Y.E.: {text}\n", "kanye")
+    _append_turn("K.A.N.Y.E.", text, "kanye_label", "kanye_body")
 
 
 def add_system(text: str) -> None:
-    _append(f"  {text}\n", "system")
+    _append(f"·  {text}\n", "system")
 
 
 def add_alert(text: str) -> None:
-    _append(f"⚠ {text}\n", "alert")
+    _append(f"⚠  {text}\n", "alert")
+
+
+def _append_turn(label: str, text: str, label_tag: str, body_tag: str) -> None:
+    def _do(l=label, t=text, lt=label_tag, bt=body_tag):
+        if not _chat_box:
+            return
+        _chat_box.config(state=tk.NORMAL)
+        _chat_box.insert(tk.END, f"{l}  ", lt)
+        _chat_box.insert(tk.END, f"{t}\n\n", bt)
+        _chat_box.see(tk.END)
+        _chat_box.config(state=tk.DISABLED)
+    _safe(_do)
 
 
 def _append(text: str, tag: str) -> None:
@@ -398,7 +428,6 @@ def set_kb_callback(fn) -> None:
 
 def set_player_status(url_or_none: str | None) -> None:
     if url_or_none:
-        # Mostrar la barra y un título corto
         from urllib.parse import urlparse, parse_qs
         title = url_or_none
         try:
@@ -409,8 +438,9 @@ def set_player_status(url_or_none: str | None) -> None:
         except Exception:
             pass
         _safe(lambda t=title: (
-            _player_bar.pack(fill=tk.X) if _player_bar else None,
-            _player_label.config(text=f"♫  {t}") if _player_label else None,
+            _player_bar.pack(fill=tk.X, pady=(10, 0), before=_player_anchor)
+            if (_player_bar and _player_anchor) else None,
+            _player_label.config(text=f"♫  {t.upper()}") if _player_label else None,
         ))
     else:
         _safe(lambda: (
