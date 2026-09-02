@@ -6,6 +6,7 @@ import json
 from core.config_loader import PROJECT_ROOT
 
 CONFIG_WORKSPACES = PROJECT_ROOT / "config" / "workspaces.json"
+CONFIG_PERMISSIONS = PROJECT_ROOT / "config" / "file_permissions.json"
 
 
 def load_workspaces() -> dict:
@@ -63,6 +64,198 @@ def safe_path(file_path: str, workspace_name: str = "kanye") -> Path | None:
     except Exception as error:
         print(f"K.A.N.Y.E.: Error resolviendo ruta: {error}")
         return None
+
+
+# ─── Permisos sobre archivos fuera de los workspaces ──────────────────────
+# A diferencia de safe_path (que restringe a un workspace pre-configurado),
+# esto deja tocar CUALQUIER ruta del sistema, pero la primera vez pide
+# autorización explícita del usuario y, si dice "siempre", la recuerda acá
+# para no volver a preguntar por ese mismo archivo/carpeta.
+
+def load_permissions() -> list[str]:
+    if not CONFIG_PERMISSIONS.exists():
+        return []
+    try:
+        with open(CONFIG_PERMISSIONS, "r", encoding="utf-8") as file:
+            data = json.load(file)
+            return data.get("allowed", [])
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error leyendo file_permissions.json: {error}")
+        return []
+
+
+def save_permissions(allowed: list[str]) -> None:
+    try:
+        CONFIG_PERMISSIONS.parent.mkdir(parents=True, exist_ok=True)
+        with open(CONFIG_PERMISSIONS, "w", encoding="utf-8") as file:
+            json.dump({"allowed": allowed}, file, ensure_ascii=False, indent=2)
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error guardando file_permissions.json: {error}")
+
+
+def _is_under(path: Path, ancestor: Path) -> bool:
+    try:
+        path.relative_to(ancestor)
+        return True
+    except ValueError:
+        return False
+
+
+def is_permitted(path: Path) -> bool:
+    for entry in load_permissions():
+        allowed_path = Path(entry)
+        if path == allowed_path or _is_under(path, allowed_path):
+            return True
+    return False
+
+
+def grant_permission(path: Path) -> None:
+    allowed = load_permissions()
+    entry = str(path)
+    if entry not in allowed:
+        allowed.append(entry)
+        save_permissions(allowed)
+        print(f"K.A.N.Y.E.: Permiso guardado para {entry}")
+
+
+def forget_permission(path_query: str) -> int:
+    """Borra los permisos guardados cuya ruta contenga path_query. Devuelve
+    cuántos se borraron."""
+    allowed = load_permissions()
+    query = path_query.lower().strip()
+    remaining = [p for p in allowed if query not in p.lower()]
+    removed = len(allowed) - len(remaining)
+    if removed:
+        save_permissions(remaining)
+    return removed
+
+
+def resolve_free_path(file_path: str) -> Path:
+    return Path(file_path).expanduser().resolve()
+
+
+def request_access(path: Path, action_label: str = "acceder a") -> bool:
+    """Pide permiso al usuario antes de tocar un archivo fuera de los
+    workspaces conocidos. Usa la GUI si está disponible, si no cae a la
+    terminal. Si el usuario elige 'siempre', el permiso queda guardado y no
+    se vuelve a preguntar por ese archivo."""
+    if is_permitted(path):
+        return True
+
+    description = f"K.A.N.Y.E. quiere {action_label} este archivo:\n\n{path}"
+    choice = "no"
+
+    try:
+        from core import gui
+        if gui.is_available():
+            choice = gui.ask_permission(description)
+        else:
+            raise RuntimeError("gui no disponible")
+    except Exception:
+        print(f"\nK.A.N.Y.E.: {description}")
+        raw = input("¿Autorizás? (una vez / siempre / no): ").lower().strip()
+        if "siempre" in raw:
+            choice = "always"
+        elif raw in ("si", "sí", "s", "una vez", "uno", "u"):
+            choice = "once"
+        else:
+            choice = "no"
+
+    if choice == "always":
+        grant_permission(path)
+        return True
+    if choice == "once":
+        return True
+
+    print("K.A.N.Y.E.: Acceso denegado por el usuario.")
+    return False
+
+
+def backup_file_anywhere(path: Path) -> bool:
+    if not path.exists():
+        return True
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = path.with_suffix(path.suffix + f".bak_{timestamp}")
+
+    try:
+        shutil.copy2(path, backup_path)
+        print(f"K.A.N.Y.E.: Backup creado en {backup_path}")
+        return True
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error creando backup: {error}")
+        return False
+
+
+def read_file_anywhere(file_path: str) -> str | None:
+    path = resolve_free_path(file_path)
+
+    if not path.exists() or not path.is_file():
+        print("K.A.N.Y.E.: No encontré ese archivo.")
+        return None
+
+    if not request_access(path, "leer"):
+        return None
+
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error leyendo archivo: {error}")
+        return None
+
+
+def write_file_anywhere(file_path: str, content: str, overwrite: bool = True) -> bool:
+    path = resolve_free_path(file_path)
+
+    if path.exists() and not overwrite:
+        print("K.A.N.Y.E.: El archivo ya existe y no pedí sobreescribirlo.")
+        return False
+
+    if not request_access(path, "escribir en"):
+        return False
+
+    if path.exists() and not backup_file_anywhere(path):
+        return False
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        print(f"K.A.N.Y.E.: Archivo guardado en {path}")
+        return True
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error escribiendo archivo: {error}")
+        return False
+
+
+def replace_in_file_anywhere(file_path: str, old_text: str, new_text: str) -> bool:
+    path = resolve_free_path(file_path)
+
+    if not path.exists() or not path.is_file():
+        print("K.A.N.Y.E.: No encontré ese archivo.")
+        return False
+
+    if not request_access(path, "editar"):
+        return False
+
+    try:
+        content = path.read_text(encoding="utf-8")
+
+        if old_text not in content:
+            print("K.A.N.Y.E.: No encontré el texto exacto a reemplazar.")
+            return False
+
+        if not backup_file_anywhere(path):
+            return False
+
+        new_content = content.replace(old_text, new_text, 1)
+        path.write_text(new_content, encoding="utf-8")
+
+        print("K.A.N.Y.E.: Archivo actualizado correctamente.")
+        return True
+
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error reemplazando texto: {error}")
+        return False
 
 
 def read_file(file_path: str, workspace_name: str = "kanye") -> str | None:

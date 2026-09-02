@@ -234,6 +234,118 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "read_file_path",
+            "description": (
+                "Lee el contenido de CUALQUIER archivo del sistema por su ruta completa "
+                "(no solo dentro de un proyecto configurado). La primera vez que se toca un "
+                "archivo o carpeta nuevo, le pide permiso al usuario antes de leerlo."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Ruta completa del archivo, ej. '/home/aaron/Documents/notas.txt' o '~/tesis.txt'."},
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file_path",
+            "description": (
+                "Crea o sobreescribe un archivo en CUALQUIER ruta del sistema con el "
+                "contenido dado. La primera vez que se toca esa ruta pide permiso al "
+                "usuario. Hace backup automático si el archivo ya existía."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Ruta completa donde guardar el archivo."},
+                    "content": {"type": "string", "description": "Contenido completo a escribir en el archivo."},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_file_path",
+            "description": (
+                "Reemplaza un texto exacto por otro dentro de CUALQUIER archivo del sistema "
+                "por su ruta completa. La primera vez que se toca esa ruta pide permiso al "
+                "usuario, y hace backup automático antes de modificar."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Ruta completa del archivo."},
+                    "old": {"type": "string", "description": "Texto exacto a reemplazar."},
+                    "new": {"type": "string", "description": "Texto nuevo."},
+                },
+                "required": ["path", "old", "new"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_file_permissions",
+            "description": "Lista los archivos y carpetas para los que el usuario ya autorizó acceso permanente ('siempre').",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "forget_file_permission",
+            "description": "Olvida un permiso de archivo/carpeta guardado previamente, para que K.A.N.Y.E. vuelva a pedir autorización la próxima vez.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Texto que debe contener la ruta guardada a olvidar."},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "type_document",
+            "description": (
+                "Escribe un texto largo LETRA POR LETRA, en tiempo real, dentro de la app que "
+                "tenga el foco (ej. Microsoft Word), como si alguien lo estuviera tecleando. "
+                "Usalo para dictar documentos largos (tesis, informes, ensayos): primero "
+                "redactá el texto completo como respuesta normal para que el usuario lo revise "
+                "y lo apruebe, y SOLO cuando confirme explícitamente que lo escriba, llamá a "
+                "esta tool con ese mismo texto ya aprobado. No la uses para textos cortos "
+                "(para eso está type_text). No bloquea la conversación: corre en segundo plano "
+                "y empieza después de una cuenta regresiva para que el usuario pueda darle foco "
+                "a la ventana correcta."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Texto completo y ya aprobado a escribir."},
+                    "cps": {"type": "number", "description": "Velocidad en caracteres por segundo. Default 18."},
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "stop_typing",
+            "description": "Detiene el tipeo largo (type_document) que esté en curso.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "type_text",
             "description": "Escribe texto en la aplicación con foco actualmente, como si se tipeara con el teclado.",
             "parameters": {
@@ -548,6 +660,67 @@ def _tool_replace_in_file(args: dict) -> str:
     return "Archivo modificado." if changed else "No se modificó el archivo (el usuario canceló la confirmación o el texto no coincide exacto)."
 
 
+def _tool_read_file_path(args: dict) -> str:
+    path = args.get("path", "").strip()
+    if not path:
+        return "Necesito la ruta del archivo."
+    content = file_actions.read_file_anywhere(path)
+    if content is None:
+        return "No pude leer ese archivo (no existe o el usuario no autorizó el acceso)."
+    if len(content) > 1200:
+        return content[:1200] + "\n... (truncado)"
+    return content
+
+
+def _tool_write_file_path(args: dict) -> str:
+    path = args.get("path", "").strip()
+    content = args.get("content", "")
+    if not path:
+        return "Necesito la ruta del archivo."
+    ok = file_actions.write_file_anywhere(path, content)
+    return f"Archivo guardado en {path}." if ok else "No pude guardar el archivo (permiso denegado o error de escritura)."
+
+
+def _tool_edit_file_path(args: dict) -> str:
+    path = args.get("path", "").strip()
+    old = args.get("old", "")
+    new = args.get("new", "")
+    if not path:
+        return "Necesito la ruta del archivo."
+    changed = file_actions.replace_in_file_anywhere(path, old, new)
+    return "Archivo modificado." if changed else "No se modificó el archivo (permiso denegado, el archivo no existe, o el texto no coincide exacto)."
+
+
+def _tool_list_file_permissions(args: dict) -> str:
+    allowed = file_actions.load_permissions()
+    if not allowed:
+        return "No tengo ningún permiso de archivo guardado todavía."
+    return "Tengo acceso permanente a:\n" + "\n".join(f"- {p}" for p in allowed)
+
+
+def _tool_forget_file_permission(args: dict) -> str:
+    query = args.get("query", "").strip()
+    if not query:
+        return "Necesito saber qué permiso olvidar."
+    count = file_actions.forget_permission(query)
+    return f"Olvidé {count} permiso(s) guardado(s)." if count else f"No tenía ningún permiso guardado con '{query}'."
+
+
+def _tool_type_document(args: dict) -> str:
+    text = args.get("text", "")
+    cps = args.get("cps", 18.0)
+    if not text:
+        return "Necesito el texto ya aprobado a escribir."
+    if keyboard_actions.is_typing():
+        return "Ya estoy escribiendo algo — decime que lo pare antes de arrancar otro."
+    ok = keyboard_actions.start_typing(text, cps=cps)
+    return "Empecé a escribir en unos segundos, dale foco a la ventana donde querés el texto." if ok else "No pude empezar a escribir."
+
+
+def _tool_stop_typing(args: dict) -> str:
+    return "Paré de escribir." if keyboard_actions.stop_typing() else "No había ningún tipeo en curso."
+
+
 def _tool_type_text(args: dict) -> str:
     text = args.get("text", "")
     uppercase = bool(args.get("uppercase", False))
@@ -652,6 +825,13 @@ _DISPATCH = {
     "search_in_file": _tool_search_in_file,
     "backup_file": _tool_backup_file,
     "replace_in_file": _tool_replace_in_file,
+    "read_file_path": _tool_read_file_path,
+    "write_file_path": _tool_write_file_path,
+    "edit_file_path": _tool_edit_file_path,
+    "list_file_permissions": _tool_list_file_permissions,
+    "forget_file_permission": _tool_forget_file_permission,
+    "type_document": _tool_type_document,
+    "stop_typing": _tool_stop_typing,
     "type_text": _tool_type_text,
     "keyboard_shortcut": _tool_keyboard_shortcut,
     "focus_status": _tool_focus_status,

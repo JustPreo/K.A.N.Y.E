@@ -521,3 +521,59 @@ def _build_confirm_dialog(image_bytes: bytes, description: str,
               ).pack(side=tk.LEFT)
 
     top.protocol("WM_DELETE_WINDOW", lambda: respond(False))
+
+
+def ask_permission(description: str, timeout: float = 60.0) -> str:
+    """Pregunta al usuario si autoriza tocar un archivo fuera de los
+    workspaces conocidos. Devuelve 'once', 'always' o 'no' (timeout cuenta
+    como 'no'). Se llama desde el hilo del tool, no el de la GUI."""
+    if not _available or not _root:
+        return "no"
+
+    result = {"choice": "no"}
+    done = threading.Event()
+
+    def ask():
+        try:
+            _build_permission_dialog(description, result, done)
+        except Exception as error:
+            print(f"K.A.N.Y.E.: Error mostrando permiso: {error}")
+            done.set()
+
+    _safe(ask)
+    done.wait(timeout=timeout)
+    return result["choice"]
+
+
+def _build_permission_dialog(description: str, result: dict, done: threading.Event) -> None:
+    top = tk.Toplevel(_root)
+    top.title("K.A.N.Y.E. — Permiso de archivo")
+    top.configure(bg=theme.VOID)
+    top.attributes("-topmost", True)
+
+    tk.Label(top, text=description, bg=theme.VOID, fg=theme.TEXT,
+              font=theme.mono_font(10), wraplength=420, justify="left"
+              ).pack(padx=20, pady=(20, 12), fill=tk.X)
+
+    btn_row = tk.Frame(top, bg=theme.VOID)
+    btn_row.pack(pady=(0, 20))
+
+    def respond(choice: str):
+        result["choice"] = choice
+        done.set()
+        top.destroy()
+
+    tk.Button(btn_row, text="SOLO UNA VEZ", command=lambda: respond("once"),
+              bg=theme.INK2, fg=theme.TEXT, font=theme.display_font(11),
+              relief=tk.FLAT, padx=16, pady=8, cursor="hand2"
+              ).pack(side=tk.LEFT, padx=(0, 8))
+    tk.Button(btn_row, text="SIEMPRE", command=lambda: respond("always"),
+              bg=theme.ACCENT, fg=theme.ON_ACCENT, font=theme.display_font(11),
+              relief=tk.FLAT, padx=16, pady=8, cursor="hand2"
+              ).pack(side=tk.LEFT, padx=(0, 8))
+    tk.Button(btn_row, text="NO", command=lambda: respond("no"),
+              bg=theme.INK2, fg=theme.DANGER, font=theme.display_font(11),
+              relief=tk.FLAT, padx=16, pady=8, cursor="hand2"
+              ).pack(side=tk.LEFT)
+
+    top.protocol("WM_DELETE_WINDOW", lambda: respond("no"))

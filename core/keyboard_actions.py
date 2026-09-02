@@ -2,6 +2,8 @@
 Control de teclado por voz.
 Usa clipboard para typing (soporta cualquier unicode) y pyautogui para shortcuts.
 """
+import random
+import threading
 import time
 
 import pyautogui
@@ -36,6 +38,93 @@ def type_text(text: str, uppercase: bool = False) -> bool:
     if uppercase:
         text = text.upper()
     return _clipboard_type(text)
+
+
+# ─── Tipeo lento (letra por letra) para dictar documentos largos ─────────
+# A diferencia de type_text (pega todo de una via clipboard), esto simula
+# tecleo real caracter por caracter para que se vea "escribiendo" en vivo
+# dentro de la app con foco (Word, un editor, etc). Corre en un hilo aparte
+# para no bloquear el asistente, y se puede cancelar a mitad de camino.
+
+_typing_lock = threading.Lock()
+_typing_cancel = threading.Event()
+_typing_active = False
+
+
+def is_typing() -> bool:
+    return _typing_active
+
+
+def stop_typing() -> bool:
+    if not _typing_active:
+        return False
+    _typing_cancel.set()
+    return True
+
+
+def _type_worker(text: str, cps: float, start_delay: float) -> None:
+    global _typing_active
+    from pynput.keyboard import Controller, Key, Listener
+
+    controller = Controller()
+    interval = 1.0 / max(cps, 1.0)
+
+    # Freno físico: con la voz, cancelar tarda el round-trip completo
+    # (hotkey → escuchar → transcribir → el LLM decida llamar stop_typing),
+    # y mientras tanto se sigue tecleando texto no deseado en el documento.
+    # Esc corta al toque sin pasar por el LLM.
+    def _on_press(key):
+        if key == Key.esc:
+            _typing_cancel.set()
+
+    esc_listener = Listener(on_press=_on_press)
+    esc_listener.start()
+
+    try:
+        for i in range(int(start_delay), 0, -1):
+            if _typing_cancel.is_set():
+                return
+            print(f"K.A.N.Y.E.: Empiezo a escribir en {i}... (Esc para cancelar)")
+            time.sleep(1.0)
+
+        for char in text:
+            if _typing_cancel.is_set():
+                print("K.A.N.Y.E.: Tipeo cancelado.")
+                return
+            if char == "\n":
+                controller.press(Key.enter)
+                controller.release(Key.enter)
+            else:
+                try:
+                    controller.type(char)
+                except Exception:
+                    pass  # caracter que el layout activo no puede mapear
+            time.sleep(max(0.005, interval + random.uniform(-interval * 0.3, interval * 0.3)))
+
+        print("K.A.N.Y.E.: Terminé de escribir el documento.")
+    finally:
+        esc_listener.stop()
+        _typing_active = False
+        _typing_cancel.clear()
+
+
+def start_typing(text: str, cps: float = 18.0, start_delay: float = 3.0) -> bool:
+    """Arranca el tipeo lento en segundo plano. Devuelve False si ya hay uno
+    en curso o si el texto está vacío."""
+    global _typing_active
+
+    if not text:
+        return False
+
+    with _typing_lock:
+        if _typing_active:
+            return False
+        _typing_active = True
+        _typing_cancel.clear()
+
+    thread = threading.Thread(target=_type_worker, args=(text, cps, start_delay), daemon=True)
+    thread.start()
+    return True
 
 
 def press_key(key: str) -> bool:
