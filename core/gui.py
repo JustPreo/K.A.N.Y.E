@@ -26,6 +26,8 @@ _kb_frame = None
 _kb_entry = None
 _kb_active = False
 _kb_toggle_btn = None
+_kb_suggest_frame = None
+_kb_suggest_labels: list = []
 _sheet_col = None
 _sheet_open = False
 _trigger_callback = None
@@ -48,7 +50,7 @@ def _build_window():
     global _root, _chat_box, _status_chip
     global _mode_value, _stats_label, _available
     global _player_label, _player_bar, _kb_frame, _kb_entry
-    global _kb_toggle_btn, _sheet_col
+    global _kb_toggle_btn, _kb_suggest_frame, _kb_suggest_labels, _sheet_col
 
     try:
         root = tk.Tk()
@@ -230,6 +232,8 @@ def _build_window():
     )
     kb_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=6, padx=(0, 6))
     kb_entry.bind("<Return>", lambda e: _on_kb_send(kb_entry))
+    kb_entry.bind("<KeyRelease>", _kb_update_suggestions)
+    kb_entry.bind("<Tab>", _kb_accept_first_suggestion)
 
     kb_send = tk.Label(
         kb_frame, text="ENVIAR", font=FONT_GHOST,
@@ -242,6 +246,23 @@ def _build_window():
         hover={"bg": theme.VOID, "fg": theme.ACCENT},
     )
     kb_send.pack(side=tk.RIGHT)
+
+    # ── Autocompletado de "cd" (sugerencias de subcarpetas) ────────────────────
+    kb_suggest = tk.Frame(main_col, bg=theme.INK2, padx=10)
+    kb_suggest_labels = []
+    for _ in range(6):
+        lbl = tk.Label(
+            kb_suggest, text="", font=FONT_BODY,
+            bg=theme.INK2, fg=theme.TEXT, anchor="w", cursor="hand2", pady=3,
+        )
+        lbl.pack(fill=tk.X)
+        lbl.bind("<Button-1>", lambda e, l=lbl: _kb_pick_suggestion(l.cget("text")))
+        theme.bind_hover(
+            lbl,
+            normal={"bg": theme.INK2, "fg": theme.TEXT},
+            hover={"bg": theme.LINE, "fg": theme.ACCENT},
+        )
+        kb_suggest_labels.append(lbl)
 
     sheet_toggle_row = tk.Frame(main_col, bg=theme.VOID, padx=10)
     sheet_toggle_row.grid(row=7, column=0, sticky="ew", pady=(0, 10))
@@ -320,6 +341,8 @@ def _build_window():
     _kb_frame      = kb_frame
     _kb_entry      = kb_entry
     _kb_toggle_btn = kb_toggle
+    _kb_suggest_frame  = kb_suggest
+    _kb_suggest_labels = kb_suggest_labels
     _sheet_col     = sheet_col
     _available     = True
 
@@ -374,6 +397,8 @@ def _toggle_keyboard_mode(btn, frame) -> None:
     else:
         frame.grid_remove()
         btn.config(fg=theme.TEXT_DIM, highlightbackground=theme.LINE)
+        if _kb_suggest_frame:
+            _kb_suggest_frame.grid_remove()
 
 
 def _on_kb_send(entry) -> None:
@@ -381,9 +406,81 @@ def _on_kb_send(entry) -> None:
     if not text:
         return
     entry.delete(0, tk.END)
+    if _kb_suggest_frame:
+        _kb_suggest_frame.grid_remove()
+
+    low = text.lower()
+    if low == "cd" or low.startswith("cd "):
+        _handle_cd(text[2:].strip())
+        return
+
     add_user(text)
     if _kb_callback:
         threading.Thread(target=_kb_callback, args=(text,), daemon=True).start()
+
+
+def _handle_cd(raw: str) -> None:
+    """Intercepta 'cd <carpeta>' en modo teclado: cambia el directorio
+    actual directo (sin pasar por el LLM), como un 'cd' de shell."""
+    from core import file_actions
+    add_user(f"cd {raw}".strip())
+    ok, result = file_actions.set_cwd(raw)
+    if ok:
+        add_system(f"Directorio actual: {result}")
+    else:
+        add_alert(f"No encontré la carpeta '{result}' desde {file_actions.get_cwd()}.")
+
+
+def _kb_update_suggestions(_event=None) -> None:
+    """Mientras se escribe 'cd <algo>' en modo teclado, muestra abajo del
+    campo las subcarpetas que matchean lo ya tipeado."""
+    if not _kb_entry or not _kb_suggest_frame:
+        return
+    text = _kb_entry.get()
+    low = text.lower()
+    if not (low == "cd" or low.startswith("cd ")):
+        _kb_suggest_frame.grid_remove()
+        return
+
+    from core import file_actions
+    prefix = text[2:].strip()
+    names = file_actions.list_dir_suggestions(prefix)
+    if not names:
+        _kb_suggest_frame.grid_remove()
+        return
+
+    for i, lbl in enumerate(_kb_suggest_labels):
+        if i < len(names):
+            lbl.config(text=names[i])
+            lbl.pack(fill=tk.X)
+        else:
+            lbl.pack_forget()
+
+    _kb_suggest_frame.grid(row=9, column=0, sticky="ew", pady=(0, 6))
+
+
+def _kb_pick_suggestion(name: str) -> None:
+    if not _kb_entry or not name:
+        return
+    text = _kb_entry.get()
+    prefix = text[2:].strip()
+    base = prefix.rsplit("/", 1)[0] + "/" if "/" in prefix else ""
+    _kb_entry.delete(0, tk.END)
+    _kb_entry.insert(0, f"cd {base}{name}")
+    _kb_entry.icursor(tk.END)
+    _kb_entry.focus_set()
+    if _kb_suggest_frame:
+        _kb_suggest_frame.grid_remove()
+
+
+def _kb_accept_first_suggestion(_event=None):
+    if not _kb_suggest_frame or not _kb_suggest_frame.winfo_ismapped():
+        return None
+    first = _kb_suggest_labels[0].cget("text") if _kb_suggest_labels else ""
+    if not first:
+        return None
+    _kb_pick_suggestion(first)
+    return "break"
 
 
 def _toggle_sheet(btn, frame) -> None:

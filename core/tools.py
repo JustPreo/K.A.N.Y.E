@@ -234,16 +234,46 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "read_file_path",
+            "name": "change_directory",
             "description": (
-                "Lee el contenido de CUALQUIER archivo del sistema por su ruta completa "
-                "(no solo dentro de un proyecto configurado). La primera vez que se toca un "
-                "archivo o carpeta nuevo, le pide permiso al usuario antes de leerlo."
+                "Cambia el directorio de trabajo actual, como un 'cd' de terminal. "
+                "Arranca en la carpeta del usuario (home). A partir de ahí, las rutas "
+                "relativas de read_file_path/write_file_path/edit_file_path (ej. "
+                "'notas.txt' en vez de la ruta completa) se resuelven desde este directorio. "
+                "Acepta rutas absolutas, relativas al directorio actual, '..' o el nombre de "
+                "una subcarpeta (sin importar mayúsculas). 'home' o vacío vuelve a la carpeta del usuario."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Ruta completa del archivo, ej. '/home/aaron/Documents/notas.txt' o '~/tesis.txt'."},
+                    "path": {"type": "string", "description": "Carpeta a la que moverse, ej. 'K.A.N.Y.E', '..', '/home/aaron/Documents', o vacío para volver a home."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "print_working_directory",
+            "description": "Dice en qué directorio de trabajo actual está parado K.A.N.Y.E. (el que usa 'cd'/change_directory).",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file_path",
+            "description": (
+                "Lee el contenido de CUALQUIER archivo del sistema por su ruta completa o "
+                "relativa al directorio de trabajo actual (ver change_directory). La primera "
+                "vez que se toca un archivo o carpeta nuevo, le pide permiso al usuario antes "
+                "de leerlo."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Ruta del archivo: completa ('/home/aaron/Documents/notas.txt', '~/tesis.txt') o relativa al directorio actual ('notas.txt')."},
                 },
                 "required": ["path"],
             },
@@ -660,6 +690,18 @@ def _tool_replace_in_file(args: dict) -> str:
     return "Archivo modificado." if changed else "No se modificó el archivo (el usuario canceló la confirmación o el texto no coincide exacto)."
 
 
+def _tool_change_directory(args: dict) -> str:
+    path = args.get("path", "")
+    ok, result = file_actions.set_cwd(path)
+    if ok:
+        return f"Ahora estoy en {result}."
+    return f"No encontré la carpeta '{result}' desde el directorio actual ({file_actions.get_cwd()})."
+
+
+def _tool_print_working_directory(args: dict) -> str:
+    return f"Estoy en {file_actions.get_cwd()}."
+
+
 def _tool_read_file_path(args: dict) -> str:
     path = args.get("path", "").strip()
     if not path:
@@ -825,6 +867,8 @@ _DISPATCH = {
     "search_in_file": _tool_search_in_file,
     "backup_file": _tool_backup_file,
     "replace_in_file": _tool_replace_in_file,
+    "change_directory": _tool_change_directory,
+    "print_working_directory": _tool_print_working_directory,
     "read_file_path": _tool_read_file_path,
     "write_file_path": _tool_write_file_path,
     "edit_file_path": _tool_edit_file_path,

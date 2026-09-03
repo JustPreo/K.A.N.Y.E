@@ -130,8 +130,93 @@ def forget_permission(path_query: str) -> int:
     return removed
 
 
+# ─── Directorio de trabajo actual ──────────────────────────────────────────
+# Como un "cd" de shell: arranca en la carpeta del usuario y las rutas
+# relativas que reciben los tools de archivo ("notas.txt", en vez de la
+# ruta completa) se resuelven desde acá.
+
+_cwd: Path = Path.home()
+
+
+def get_cwd() -> Path:
+    return _cwd
+
+
+def set_cwd(raw: str) -> tuple[bool, str]:
+    """Cambia el directorio actual. Acepta rutas absolutas, relativas al
+    directorio actual, '~' o vacío (vuelve a home), y '..'. Si no matchea
+    tal cual, busca una subcarpeta del directorio actual cuyo nombre
+    coincida sin importar mayúsculas (para tolerar 'cd kanye' cuando la
+    carpeta real es 'K.A.N.Y.E'). Devuelve (ok, ruta_resultante_o_original)."""
+    global _cwd
+    raw = (raw or "").strip()
+
+    if not raw or raw in ("~", "home"):
+        _cwd = Path.home()
+        return True, str(_cwd)
+
+    candidate = Path(raw).expanduser()
+    if not candidate.is_absolute():
+        candidate = _cwd / candidate
+    try:
+        candidate = candidate.resolve()
+    except Exception:
+        candidate = None
+
+    if candidate and candidate.is_dir():
+        _cwd = candidate
+        return True, str(_cwd)
+
+    target_name = Path(raw).name.lower()
+    try:
+        for entry in sorted(_cwd.iterdir()):
+            if entry.is_dir() and entry.name.lower() == target_name:
+                _cwd = entry.resolve()
+                return True, str(_cwd)
+    except Exception:
+        pass
+
+    return False, raw
+
+
+def list_dir_suggestions(prefix: str, limit: int = 8) -> list[str]:
+    """Sugerencias de autocompletado para 'cd': nombres de subcarpetas que
+    empiezan con `prefix` (case-insensitive), resueltas desde el directorio
+    actual salvo que `prefix` ya traiga una parte de ruta ('proyectos/kan')."""
+    prefix = prefix or ""
+    base = _cwd
+    leaf = prefix
+
+    if "/" in prefix:
+        head, leaf = prefix.rsplit("/", 1)
+        head_path = Path(head).expanduser()
+        base = head_path if head_path.is_absolute() else (_cwd / head_path)
+
+    try:
+        base = base.resolve()
+    except Exception:
+        return []
+
+    if not base.is_dir():
+        return []
+
+    leaf_lower = leaf.lower()
+    try:
+        names = sorted(
+            entry.name for entry in base.iterdir()
+            if entry.is_dir() and entry.name.lower().startswith(leaf_lower)
+        )
+    except Exception:
+        return []
+
+    return names[:limit]
+
+
 def resolve_free_path(file_path: str) -> Path:
-    return Path(file_path).expanduser().resolve()
+    path = Path(file_path).expanduser()
+    if not path.is_absolute():
+        path = _cwd / path
+    return path.resolve()
 
 
 def request_access(path: Path, action_label: str = "acceder a") -> bool:
