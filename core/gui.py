@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import scrolledtext
 
 from core import theme
+from core import cheatsheet_data
 
 _suppress_close = False   # True mientras KANYE cierra otras apps
 _root: tk.Tk | None = None
@@ -21,10 +22,12 @@ _mode_value = None
 _stats_label = None
 _player_label = None
 _player_bar = None
-_player_anchor = None     # widget antes del cual se inserta la player bar al mostrarla
 _kb_frame = None
 _kb_entry = None
 _kb_active = False
+_kb_toggle_btn = None
+_sheet_col = None
+_sheet_open = False
 _trigger_callback = None
 _start_hidden = True
 _kb_callback = None       # fn(text) → llamado al enviar comando por teclado
@@ -44,7 +47,8 @@ def _bar(parent, accent: str) -> tk.Frame:
 def _build_window():
     global _root, _chat_box, _status_chip
     global _mode_value, _stats_label, _available
-    global _player_label, _player_bar, _player_anchor, _kb_frame, _kb_entry
+    global _player_label, _player_bar, _kb_frame, _kb_entry
+    global _kb_toggle_btn, _sheet_col
 
     try:
         root = tk.Tk()
@@ -52,10 +56,26 @@ def _build_window():
         return
 
     root.title("K.A.N.Y.E.")
-    root.geometry("400x600")
-    root.minsize(340, 460)
+    root.geometry("400x650")
+    root.minsize(340, 520)
     root.resizable(True, True)
     root.configure(bg=theme.VOID)
+
+    body = tk.Frame(root, bg=theme.VOID)
+    body.pack(fill=tk.BOTH, expand=True)
+    # Todo en grid (en vez de pack): así el ancho/alto de cada fila/columna se
+    # recalcula correctamente sin importar en qué orden se agregan o se
+    # muestran/ocultan elementos dinámicos (reproductor, modo teclado, panel
+    # de comandos) — con pack, agregar un widget nuevo después de que otro
+    # con expand=True ya reclamó su espacio no siempre lo reacomodaba bien.
+    body.grid_columnconfigure(0, weight=1)
+    body.grid_columnconfigure(1, weight=0)
+    body.grid_rowconfigure(0, weight=1)
+
+    main_col = tk.Frame(body, bg=theme.VOID)
+    main_col.grid(row=0, column=0, sticky="nsew")
+    main_col.grid_columnconfigure(0, weight=1)
+    main_col.grid_rowconfigure(4, weight=1)   # fila del chat
 
     FONT_WORDMARK = theme.display_font(20, "bold")
     FONT_CAPTION  = theme.mono_font(8)
@@ -67,8 +87,8 @@ def _build_window():
     FONT_GHOST    = theme.mono_font(9, "bold")
 
     # ── Header ────────────────────────────────────────────────────────────────
-    header = tk.Frame(root, bg=theme.VOID, padx=14)
-    header.pack(fill=tk.X, pady=(14, 10))
+    header = tk.Frame(main_col, bg=theme.VOID, padx=14)
+    header.grid(row=0, column=0, sticky="ew", pady=(14, 10))
 
     top_row = tk.Frame(header, bg=theme.VOID)
     top_row.pack(fill=tk.X)
@@ -92,11 +112,12 @@ def _build_window():
         anchor="w", wraplength=360, justify=tk.LEFT,
     ).pack(fill=tk.X, pady=(4, 0))
 
-    tk.Frame(root, bg=theme.ACCENT, height=2).pack(fill=tk.X)
+    divider = tk.Frame(main_col, bg=theme.ACCENT, height=2)
+    divider.grid(row=1, column=0, sticky="ew")
 
     # ── Modo activo ───────────────────────────────────────────────────────────
-    mode_row, mode_inner = _bar(root, theme.ACCENT_DIM)
-    mode_row.pack(fill=tk.X)
+    mode_row, mode_inner = _bar(main_col, theme.ACCENT_DIM)
+    mode_row.grid(row=2, column=0, sticky="ew")
     tk.Label(mode_inner, text="MODO", font=FONT_LABEL,
              bg=theme.INK2, fg=theme.TEXT_DIM).pack(side=tk.LEFT)
     mvalue = tk.Label(mode_inner, text="—", font=theme.mono_font(9, "bold"),
@@ -104,7 +125,7 @@ def _build_window():
     mvalue.pack(side=tk.LEFT)
 
     # ── Player bar (oculta hasta que hay reproducción) ─────────────────────────
-    player_row, player_inner = _bar(root, theme.STATE_COLORS["speaking"])
+    player_row, player_inner = _bar(main_col, theme.STATE_COLORS["speaking"])
 
     plabel = tk.Label(
         player_inner, text="♫ SIN REPRODUCCIÓN", font=theme.mono_font(9),
@@ -125,8 +146,8 @@ def _build_window():
     )
 
     # ── Chat ──────────────────────────────────────────────────────────────────
-    chat_frame = tk.Frame(root, bg=theme.VOID)
-    chat_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(10, 0))
+    chat_frame = tk.Frame(main_col, bg=theme.VOID)
+    chat_frame.grid(row=4, column=0, sticky="nsew", padx=10, pady=(10, 0))
 
     chat = scrolledtext.ScrolledText(
         chat_frame,
@@ -147,15 +168,15 @@ def _build_window():
     chat.tag_configure("alert",       foreground=theme.STATE_COLORS["error"], font=FONT_BODY_B)
 
     # ── Stats ─────────────────────────────────────────────────────────────────
-    stats_row, stats_inner = _bar(root, theme.TEXT_DIM)
-    stats_row.pack(fill=tk.X, pady=(10, 0))
+    stats_row, stats_inner = _bar(main_col, theme.TEXT_DIM)
+    stats_row.grid(row=5, column=0, sticky="ew", pady=(10, 0))
     stlabel = tk.Label(stats_inner, text="CPU --%  ·  RAM --%  ·  BAT --%",
                         font=theme.mono_font(9), bg=theme.INK2, fg=theme.TEXT_DIM)
     stlabel.pack(side=tk.LEFT)
 
     # ── Acciones ──────────────────────────────────────────────────────────────
-    btn_frame = tk.Frame(root, bg=theme.VOID, padx=10, pady=10)
-    btn_frame.pack(fill=tk.X)
+    btn_frame = tk.Frame(main_col, bg=theme.VOID, padx=10, pady=10)
+    btn_frame.grid(row=6, column=0, sticky="ew")
 
     btn = tk.Label(
         btn_frame,
@@ -196,7 +217,7 @@ def _build_window():
     kb_toggle = _ghost(ghost_row, "⌨  MODO TECLADO", lambda: _toggle_keyboard_mode(kb_toggle, kb_frame))
     kb_toggle.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
 
-    kb_frame = tk.Frame(root, bg=theme.VOID, padx=10)
+    kb_frame = tk.Frame(main_col, bg=theme.VOID, padx=10)
 
     kb_entry = tk.Entry(
         kb_frame,
@@ -222,6 +243,61 @@ def _build_window():
     )
     kb_send.pack(side=tk.RIGHT)
 
+    sheet_toggle_row = tk.Frame(main_col, bg=theme.VOID, padx=10)
+    sheet_toggle_row.grid(row=7, column=0, sticky="ew", pady=(0, 10))
+
+    sheet_btn = _ghost(sheet_toggle_row, "»  COMANDOS", lambda: _toggle_sheet(sheet_btn, sheet_col))
+    sheet_btn.pack(fill=tk.X)
+
+    # ── Panel de comandos (hoja de trucos, colapsable a la derecha) ────────────
+    sheet_col = tk.Frame(body, bg=theme.INK, width=248)
+    sheet_col.pack_propagate(False)   # sus hijos (canvas/scrollbar) usan pack; esto fija su ancho aunque el contenido interno sea más ancho
+
+    sheet_canvas = tk.Canvas(sheet_col, bg=theme.INK, highlightthickness=0)
+    sheet_scroll = tk.Scrollbar(sheet_col, orient=tk.VERTICAL, command=sheet_canvas.yview)
+    sheet_inner = tk.Frame(sheet_canvas, bg=theme.INK)
+
+    sheet_inner.bind(
+        "<Configure>",
+        lambda e: sheet_canvas.configure(scrollregion=sheet_canvas.bbox("all")),
+    )
+    sheet_canvas.create_window((0, 0), window=sheet_inner, anchor="nw", width=228)
+    sheet_canvas.configure(yscrollcommand=sheet_scroll.set)
+    sheet_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0), pady=10)
+    sheet_scroll.pack(side=tk.RIGHT, fill=tk.Y, pady=10)
+
+    def _sheet_wheel(e, canvas=sheet_canvas):
+        delta = -1 if getattr(e, "num", None) == 4 or getattr(e, "delta", 0) > 0 else 1
+        canvas.yview_scroll(delta, "units")
+
+    sheet_canvas.bind("<MouseWheel>", _sheet_wheel)
+    sheet_canvas.bind("<Button-4>", _sheet_wheel)
+    sheet_canvas.bind("<Button-5>", _sheet_wheel)
+
+    tk.Label(
+        sheet_inner, text="COMANDOS DE EJEMPLO — CLIC PARA TIPEAR", font=FONT_LABEL,
+        bg=theme.INK, fg=theme.TEXT_DIM, anchor="w", wraplength=220, justify=tk.LEFT,
+    ).pack(fill=tk.X, pady=(0, 8))
+
+    for section in cheatsheet_data.CATEGORIES:
+        tk.Label(
+            sheet_inner, text=section["title"].upper(), font=theme.mono_font(8, "bold"),
+            bg=theme.INK, fg=theme.ACCENT_DIM, anchor="w",
+        ).pack(fill=tk.X, pady=(10, 3))
+        for phrase in section["items"]:
+            item = tk.Label(
+                sheet_inner, text=phrase, font=theme.mono_font(9),
+                bg=theme.INK, fg=theme.TEXT, anchor="w", justify=tk.LEFT,
+                wraplength=220, cursor="hand2", pady=4,
+            )
+            item.pack(fill=tk.X)
+            item.bind("<Button-1>", lambda e, p=phrase: _send_cheat_command(p))
+            theme.bind_hover(
+                item,
+                normal={"bg": theme.INK, "fg": theme.TEXT},
+                hover={"bg": theme.INK2, "fg": theme.ACCENT},
+            )
+
     _root          = root
     _chat_box      = chat
     _status_chip   = chip
@@ -229,9 +305,10 @@ def _build_window():
     _stats_label   = stlabel
     _player_label  = plabel
     _player_bar    = player_row
-    _player_anchor = chat_frame
     _kb_frame      = kb_frame
     _kb_entry      = kb_entry
+    _kb_toggle_btn = kb_toggle
+    _sheet_col     = sheet_col
     _available     = True
 
     # Stats loop
@@ -278,12 +355,12 @@ def _toggle_keyboard_mode(btn, frame) -> None:
     global _kb_active
     _kb_active = not _kb_active
     if _kb_active:
-        frame.pack(fill=tk.X, pady=(0, 6))
+        frame.grid(row=8, column=0, sticky="ew", pady=(0, 6))
         btn.config(fg=theme.ACCENT, highlightbackground=theme.ACCENT)
         if _kb_entry:
             _kb_entry.focus_set()
     else:
-        frame.pack_forget()
+        frame.grid_remove()
         btn.config(fg=theme.TEXT_DIM, highlightbackground=theme.LINE)
 
 
@@ -295,6 +372,48 @@ def _on_kb_send(entry) -> None:
     add_user(text)
     if _kb_callback:
         threading.Thread(target=_kb_callback, args=(text,), daemon=True).start()
+
+
+def _toggle_sheet(btn, frame) -> None:
+    """Muestra/oculta el panel de comandos a la derecha, ensanchando o
+    achicando la ventana en el ancho que ocupa el panel."""
+    global _sheet_open
+    _sheet_open = not _sheet_open
+    if not _root:
+        return
+    _root.update_idletasks()
+    w, h = _root.winfo_width(), _root.winfo_height()
+    if _sheet_open:
+        frame.grid(row=0, column=1, sticky="ns")
+        btn.config(fg=theme.ACCENT, highlightbackground=theme.ACCENT)
+        _root.geometry(f"{w + 248}x{h}")
+    else:
+        frame.grid_remove()
+        btn.config(fg=theme.TEXT_DIM, highlightbackground=theme.LINE)
+        _root.geometry(f"{max(w - 248, 340)}x{h}")
+
+
+def _send_cheat_command(text: str) -> None:
+    """Al hacer clic en un comando del panel: activa el modo teclado si
+    hace falta y lo tipea letra por letra, listo para que el usuario lo
+    revise y presione ENVIAR."""
+    if not _kb_active:
+        _toggle_keyboard_mode(_kb_toggle_btn, _kb_frame)
+    if not _kb_entry:
+        return
+    _type_cheat_command(text, 0)
+
+
+def _type_cheat_command(text: str, i: int) -> None:
+    if not _kb_entry or not _root:
+        return
+    _kb_entry.delete(0, tk.END)
+    _kb_entry.insert(0, text[:i])
+    if i < len(text):
+        _root.after(26, _type_cheat_command, text, i + 1)
+    else:
+        _kb_entry.focus_set()
+        _kb_entry.icursor(tk.END)
 
 
 def _stats_loop():
@@ -435,13 +554,13 @@ def set_player_status(url_or_none: str | None) -> None:
         except Exception:
             pass
         _safe(lambda t=title: (
-            _player_bar.pack(fill=tk.X, pady=(10, 0), before=_player_anchor)
-            if (_player_bar and _player_anchor) else None,
+            _player_bar.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+            if _player_bar else None,
             _player_label.config(text=f"♫  {t.upper()}") if _player_label else None,
         ))
     else:
         _safe(lambda: (
-            _player_bar.pack_forget() if _player_bar else None,
+            _player_bar.grid_remove() if _player_bar else None,
         ))
 
 
