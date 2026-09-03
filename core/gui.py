@@ -270,9 +270,21 @@ def _build_window():
         delta = -1 if getattr(e, "num", None) == 4 or getattr(e, "delta", 0) > 0 else 1
         canvas.yview_scroll(delta, "units")
 
-    sheet_canvas.bind("<MouseWheel>", _sheet_wheel)
-    sheet_canvas.bind("<Button-4>", _sheet_wheel)
-    sheet_canvas.bind("<Button-5>", _sheet_wheel)
+    # bind_all mientras el mouse está sobre el panel: así el scroll funciona
+    # sin importar qué widget hijo (una tarjeta de comando, un título de
+    # categoría) esté bajo el cursor, no solo el canvas mismo.
+    def _sheet_bind_wheel(_e=None):
+        sheet_canvas.bind_all("<MouseWheel>", _sheet_wheel)
+        sheet_canvas.bind_all("<Button-4>", _sheet_wheel)
+        sheet_canvas.bind_all("<Button-5>", _sheet_wheel)
+
+    def _sheet_unbind_wheel(_e=None):
+        sheet_canvas.unbind_all("<MouseWheel>")
+        sheet_canvas.unbind_all("<Button-4>")
+        sheet_canvas.unbind_all("<Button-5>")
+
+    sheet_col.bind("<Enter>", _sheet_bind_wheel)
+    sheet_col.bind("<Leave>", _sheet_unbind_wheel)
 
     tk.Label(
         sheet_inner, text="COMANDOS DE EJEMPLO — CLIC PARA TIPEAR", font=FONT_LABEL,
