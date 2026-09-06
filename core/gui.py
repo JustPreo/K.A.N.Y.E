@@ -443,9 +443,10 @@ def _handle_dictation(raw: str, text: str) -> None:
     Oculta la ventana de una para que el foco vuelva a la ventana que
     estaba activa antes de abrir KANYE (si no, el tipeo cae en KANYE
     mismo mientras corre la cuenta regresiva)."""
-    from core import keyboard_actions
+    from core import keyboard_actions, window_actions
     add_user(raw)
     hide()
+    window_actions.restore_focus_to_previous()
     if not keyboard_actions.start_typing(text, start_delay=1.0):
         show()
         add_alert("Ya estoy escribiendo algo — decime que lo pare antes de arrancar otro.")

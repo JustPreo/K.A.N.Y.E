@@ -106,10 +106,11 @@ def handle_command(command: str) -> bool:
             print()
             return True
 
-    from core import keyboard_actions
+    from core import keyboard_actions, window_actions
     dictation = keyboard_actions.parse_dictation_command(command)
     if dictation is not None:
         gui.hide()
+        window_actions.restore_focus_to_previous()
         if keyboard_actions.start_typing(dictation, start_delay=1.0):
             say("Empiezo a escribir.")
         else:

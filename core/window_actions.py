@@ -27,6 +27,11 @@ def _minimize_hyprland() -> bool:
     return bool(r and r.returncode == 0)
 
 
+def _restore_focus_hyprland() -> bool:
+    r = _cmd("hyprctl", "dispatch", "focuscurrentorlast")
+    return bool(r and r.returncode == 0)
+
+
 def _toggle_maximize_hyprland() -> bool:
     r = _cmd("hyprctl", "dispatch", "fullscreen", "1")
     return bool(r and r.returncode == 0)
@@ -162,6 +167,18 @@ def minimize_active() -> bool:
     if _minimize_wmctrl():
         return True
     return _minimize_xdotool()
+
+
+def restore_focus_to_previous() -> bool:
+    """Devuelve el foco de teclado a la ventana que estaba activa antes de
+    la actual (ej. antes de que se mostrara la ventana de KANYE). En
+    Hyprland (tiling), esconder/retirar la ventana de KANYE no le devuelve
+    el foco automáticamente a la ventana anterior — hay que pedirlo
+    explícito. En el resto de plataformas el foco vuelve solo al ocultar
+    la ventana, así que no hace falta nada más."""
+    if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return _restore_focus_hyprland()
+    return False
 
 
 def toggle_maximize_active() -> bool:
