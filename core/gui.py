@@ -439,13 +439,13 @@ def _handle_cd(raw: str) -> None:
 
 def _handle_dictation(raw: str, text: str) -> None:
     """Intercepta 'escribí esto: ...' / 'escribí: ...' en modo teclado:
-    tipea directo (sin pasar por el LLM), preservando mayúsculas."""
+    tipea letra por letra (sin pasar por el LLM), preservando mayúsculas."""
     from core import keyboard_actions
     add_user(raw)
-    if keyboard_actions.type_text(text):
-        add_system("Texto escrito.")
+    if keyboard_actions.start_typing(text):
+        add_system("Empiezo a escribir en unos segundos, dale foco a la ventana donde querés el texto.")
     else:
-        add_alert("No pude escribir el texto.")
+        add_alert("Ya estoy escribiendo algo — decime que lo pare antes de arrancar otro.")
 
 
 def _kb_update_suggestions(_event=None) -> None:
