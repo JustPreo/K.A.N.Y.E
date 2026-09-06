@@ -1,9 +1,19 @@
 """
 Control de teclado por voz.
-Usa clipboard para typing (soporta cualquier unicode) y pyautogui para shortcuts.
+
+En sesiones Wayland (Hyprland, Sway, etc.) pynput y pyautogui inyectan
+teclas vía XTEST, que solo llega a ventanas X11/XWayland — no a clientes
+Wayland nativos (la gran mayoría de apps modernas: kitty, Brave, GTK4,
+Electron en modo Wayland...). Por eso todo lo de acá prueba primero con
+wtype (protocolo virtual-keyboard de Wayland, llega a cualquier ventana
+con foco real) y solo cae a pynput/pyautogui si no hay wtype disponible
+(X11 puro, Windows, macOS).
 """
+import os
 import random
 import re
+import shutil
+import subprocess
 import threading
 import time
 
@@ -13,6 +23,19 @@ pyautogui.FAILSAFE = False
 pyautogui.PAUSE    = 0.04
 
 
+def _wayland_typing_available() -> bool:
+    return bool(os.environ.get("WAYLAND_DISPLAY")) and shutil.which("wtype") is not None
+
+
+def _wtype_run(args: list[str], timeout: float = 15.0) -> bool:
+    try:
+        result = subprocess.run(["wtype", *args], capture_output=True, timeout=timeout)
+        return result.returncode == 0
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error con wtype: {error}")
+        return False
+
+
 def _clipboard_type(text: str) -> bool:
     """Pega texto usando el portapapeles para soportar acentos y caracteres especiales."""
     try:
@@ -20,7 +43,7 @@ def _clipboard_type(text: str) -> bool:
         previous = pyperclip.paste()
         pyperclip.copy(text)
         time.sleep(0.1)
-        pyautogui.hotkey("ctrl", "v")
+        hotkey("ctrl", "v")
         time.sleep(0.15)
         pyperclip.copy(previous)   # restaura el portapapeles original
         return True
@@ -38,6 +61,8 @@ def type_text(text: str, uppercase: bool = False) -> bool:
         return False
     if uppercase:
         text = text.upper()
+    if _wayland_typing_available() and _wtype_run([text]):
+        return True
     return _clipboard_type(text)
 
 
@@ -81,6 +106,7 @@ def parse_dictation_command(text: str) -> str | None:
 _typing_lock = threading.Lock()
 _typing_cancel = threading.Event()
 _typing_active = False
+_typing_process: "subprocess.Popen | None" = None
 
 
 def is_typing() -> bool:
@@ -91,11 +117,39 @@ def stop_typing() -> bool:
     if not _typing_active:
         return False
     _typing_cancel.set()
+    if _typing_process is not None:
+        _typing_process.terminate()
     return True
 
 
-def _type_worker(text: str, cps: float, start_delay: float) -> None:
-    global _typing_active
+def _type_worker_wtype(text: str, delay_ms: int) -> None:
+    """Un solo proceso wtype para todo el texto: -d aplica el delay entre
+    cada tecla, y los saltos de línea se mandan como Return explícito."""
+    global _typing_process
+    args = ["wtype", "-d", str(delay_ms)]
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        if i > 0:
+            args += ["-k", "Return"]
+        if line:
+            args.append(line)
+
+    try:
+        _typing_process = subprocess.Popen(args)
+        while _typing_process.poll() is None:
+            if _typing_cancel.is_set():
+                _typing_process.terminate()
+                print("K.A.N.Y.E.: Tipeo cancelado.")
+                return
+            time.sleep(0.05)
+        print("K.A.N.Y.E.: Terminé de escribir el documento.")
+    except Exception as error:
+        print(f"K.A.N.Y.E.: Error al escribir con wtype: {error}")
+    finally:
+        _typing_process = None
+
+
+def _type_worker_pynput(text: str, cps: float) -> None:
     from pynput.keyboard import Controller, Key, Listener
 
     controller = Controller()
@@ -104,7 +158,8 @@ def _type_worker(text: str, cps: float, start_delay: float) -> None:
     # Freno físico: con la voz, cancelar tarda el round-trip completo
     # (hotkey → escuchar → transcribir → el LLM decida llamar stop_typing),
     # y mientras tanto se sigue tecleando texto no deseado en el documento.
-    # Esc corta al toque sin pasar por el LLM.
+    # Esc corta al toque sin pasar por el LLM. Solo funciona en X11 puro
+    # (sin wtype), igual que el resto de este fallback.
     def _on_press(key):
         if key == Key.esc:
             _typing_cancel.set()
@@ -113,12 +168,6 @@ def _type_worker(text: str, cps: float, start_delay: float) -> None:
     esc_listener.start()
 
     try:
-        for i in range(int(start_delay), 0, -1):
-            if _typing_cancel.is_set():
-                return
-            print(f"K.A.N.Y.E.: Empiezo a escribir en {i}... (Esc para cancelar)")
-            time.sleep(1.0)
-
         for char in text:
             if _typing_cancel.is_set():
                 print("K.A.N.Y.E.: Tipeo cancelado.")
@@ -136,6 +185,31 @@ def _type_worker(text: str, cps: float, start_delay: float) -> None:
         print("K.A.N.Y.E.: Terminé de escribir el documento.")
     finally:
         esc_listener.stop()
+
+
+def _type_worker(text: str, cps: float, start_delay: float) -> None:
+    global _typing_active
+
+    for i in range(int(start_delay), 0, -1):
+        if _typing_cancel.is_set():
+            _typing_active = False
+            _typing_cancel.clear()
+            return
+        print(f"K.A.N.Y.E.: Empiezo a escribir en {i}...")
+        time.sleep(1.0)
+
+    if _typing_cancel.is_set():
+        _typing_active = False
+        _typing_cancel.clear()
+        return
+
+    try:
+        if _wayland_typing_available():
+            delay_ms = max(1, round(1000 / max(cps, 1.0)))
+            _type_worker_wtype(text, delay_ms)
+        else:
+            _type_worker_pynput(text, cps)
+    finally:
         _typing_active = False
         _typing_cancel.clear()
 
@@ -159,7 +233,19 @@ def start_typing(text: str, cps: float = 18.0, start_delay: float = 3.0) -> bool
     return True
 
 
+# Nombres de tecla de pyautogui → nombres que entiende wtype (libxkbcommon).
+_WTYPE_KEYS = {
+    "enter": "Return", "tab": "Tab", "escape": "Escape", "esc": "Escape",
+    "space": "space", "backspace": "BackSpace", "f5": "F5",
+    "left": "Left", "right": "Right", "up": "Up", "down": "Down",
+}
+_WTYPE_MODS = {"ctrl": "ctrl", "alt": "alt", "shift": "shift", "super": "logo"}
+
+
 def press_key(key: str) -> bool:
+    if _wayland_typing_available():
+        if _wtype_run(["-k", _WTYPE_KEYS.get(key, key)]):
+            return True
     try:
         pyautogui.press(key)
         return True
@@ -169,6 +255,18 @@ def press_key(key: str) -> bool:
 
 
 def hotkey(*keys: str) -> bool:
+    if _wayland_typing_available():
+        *mods, key = keys
+        wmods = [_WTYPE_MODS.get(m, m) for m in mods]
+        wkey = _WTYPE_KEYS.get(key, key)
+        args = []
+        for m in wmods:
+            args += ["-M", m]
+        args += ["-k", wkey]
+        for m in reversed(wmods):
+            args += ["-m", m]
+        if _wtype_run(args):
+            return True
     try:
         pyautogui.hotkey(*keys)
         return True
