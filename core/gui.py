@@ -439,12 +439,15 @@ def _handle_cd(raw: str) -> None:
 
 def _handle_dictation(raw: str, text: str) -> None:
     """Intercepta 'escribí esto: ...' / 'escribí: ...' en modo teclado:
-    tipea letra por letra (sin pasar por el LLM), preservando mayúsculas."""
+    tipea letra por letra (sin pasar por el LLM), preservando mayúsculas.
+    Oculta la ventana de una para que el foco vuelva a la ventana que
+    estaba activa antes de abrir KANYE (si no, el tipeo cae en KANYE
+    mismo mientras corre la cuenta regresiva)."""
     from core import keyboard_actions
     add_user(raw)
-    if keyboard_actions.start_typing(text):
-        add_system("Empiezo a escribir en unos segundos, dale foco a la ventana donde querés el texto.")
-    else:
+    hide()
+    if not keyboard_actions.start_typing(text, start_delay=1.0):
+        show()
         add_alert("Ya estoy escribiendo algo — decime que lo pare antes de arrancar otro.")
 
 
