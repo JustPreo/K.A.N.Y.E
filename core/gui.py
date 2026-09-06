@@ -414,6 +414,12 @@ def _on_kb_send(entry) -> None:
         _handle_cd(text[2:].strip())
         return
 
+    from core import keyboard_actions
+    dictation = keyboard_actions.parse_dictation_command(text)
+    if dictation is not None:
+        _handle_dictation(text, dictation)
+        return
+
     add_user(text)
     if _kb_callback:
         threading.Thread(target=_kb_callback, args=(text,), daemon=True).start()
@@ -429,6 +435,17 @@ def _handle_cd(raw: str) -> None:
         add_system(f"Directorio actual: {result}")
     else:
         add_alert(f"No encontré la carpeta '{result}' desde {file_actions.get_cwd()}.")
+
+
+def _handle_dictation(raw: str, text: str) -> None:
+    """Intercepta 'escribí esto: ...' / 'escribí: ...' en modo teclado:
+    tipea directo (sin pasar por el LLM), preservando mayúsculas."""
+    from core import keyboard_actions
+    add_user(raw)
+    if keyboard_actions.type_text(text):
+        add_system("Texto escrito.")
+    else:
+        add_alert("No pude escribir el texto.")
 
 
 def _kb_update_suggestions(_event=None) -> None:

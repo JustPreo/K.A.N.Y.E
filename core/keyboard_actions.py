@@ -3,6 +3,7 @@ Control de teclado por voz.
 Usa clipboard para typing (soporta cualquier unicode) y pyautogui para shortcuts.
 """
 import random
+import re
 import threading
 import time
 
@@ -38,6 +39,37 @@ def type_text(text: str, uppercase: bool = False) -> bool:
     if uppercase:
         text = text.upper()
     return _clipboard_type(text)
+
+
+# ─── Dictado directo ("escribí esto: ...") ────────────────────────────────
+# Se resuelve acá con regex en vez de dejarlo en manos del LLM: es un pedido
+# tan común y mecánico (pegar texto tal cual) que conviene que sea 100%
+# confiable, igual que "cd" en modo teclado.
+
+_DICTATE_ESTO_RE = re.compile(
+    r"^(?:escrib[ieéí]?(?:me)?|tipe[aá])\s+esto\b\s*[:,]?\s*(.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_DICTATE_COLON_RE = re.compile(
+    r"^(?:escrib[ieéí]?(?:me)?|tipe[aá])\s*:\s*(.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def parse_dictation_command(text: str) -> str | None:
+    """Si el texto es un pedido directo de tipeo ('escribí esto: ...',
+    'escribí: ...'), devuelve el texto a escribir preservando mayúsculas
+    tal cual se tipeó. Si no matchea ninguna de esas formas, None."""
+    if not text:
+        return None
+    stripped = text.strip()
+    for pattern in (_DICTATE_ESTO_RE, _DICTATE_COLON_RE):
+        match = pattern.match(stripped)
+        if match:
+            content = match.group(1).strip()
+            if content:
+                return content
+    return None
 
 
 # ─── Tipeo lento (letra por letra) para dictar documentos largos ─────────

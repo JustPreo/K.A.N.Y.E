@@ -106,6 +106,13 @@ def handle_command(command: str) -> bool:
             print()
             return True
 
+    from core import keyboard_actions
+    dictation = keyboard_actions.parse_dictation_command(command)
+    if dictation is not None:
+        say("Texto escrito." if keyboard_actions.type_text(dictation) else "No pude escribir el texto.")
+        print()
+        return True
+
     return handle_chat(command)
 
 
