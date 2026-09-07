@@ -276,8 +276,8 @@ def main() -> None:
     monitor.set_notify(_notify_with_gui)
     focus.set_callbacks(on_expired=None, speak=speak, notify=_notify_with_gui)
 
-    # Iniciar presencia ambiental y monitor de sistema
-    ambient.start()
+    # Monitor de sistema (las notificaciones motivacionales de ambient.py
+    # se desactivaron: al usuario no le gustan).
     monitor.start()
 
     if config.get("startup_tts", True):
